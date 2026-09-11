@@ -1,0 +1,44 @@
+[project]
+name = "tracera-backend"
+version = "0.1.0"
+description = "Tracera backend API"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.0",
+    "uvicorn[standard]==0.32.0",
+    "httpx==0.28.1",
+    "pydantic==2.9.2",
+    "pydantic-settings==2.6.1",
+    "python-dotenv==1.0.1",
+    "beautifulsoup4==4.12.3",
+    "lxml==5.3.0",
+    "sqlalchemy==2.0.36",
+    "alembic==1.13.2",
+    "asyncpg==0.29.0",
+    "pydantic-extra-types==2.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.24.0",
+    "pytest-cov==5.0.0",
+    "httpx-mock==0.22.0",
+    "aiosqlite==0.20.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
