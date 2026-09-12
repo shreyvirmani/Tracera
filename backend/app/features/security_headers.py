@@ -11,6 +11,8 @@ SECURITY_HEADERS = {
     "cross-origin-embedder-policy": "cross_origin_embedder_policy",
     "cross-origin-opener-policy": "cross_origin_opener_policy",
     "cross-origin-resource-policy": "cross_origin_resource_policy",
+    "access-control-allow-origin": "access_control_allow_origin",
+    "access-control-allow-credentials": "access_control_allow_credentials",
 }
 
 

@@ -29,6 +29,8 @@ class SecurityHeaderFeatures(BaseModel):
     cross_origin_embedder_policy: str | None = None
     cross_origin_opener_policy: str | None = None
     cross_origin_resource_policy: str | None = None
+    access_control_allow_origin: str | None = None
+    access_control_allow_credentials: str | None = None
 
 
 class CookieFeatures(BaseModel):
