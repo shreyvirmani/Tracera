@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 
+from app.api.v1 import scans
+
 app = FastAPI(title="Tracera API", version="0.1.0")
+
+app.include_router(scans.router, prefix="/api/v1")
 
 
 @app.get("/")
