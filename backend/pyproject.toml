@@ -42,6 +42,7 @@ select = [
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
+    "B008",  # Depends in defaults - standard FastAPI pattern
 ]
 per-file-ignores = { "tests/*" = ["S101", "S106"] }
 

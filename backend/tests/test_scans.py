@@ -8,34 +8,32 @@ client = TestClient(app)
 
 
 class TestCreateScan:
-    def test_valid_url_returns_scan_id(self):
-        with (
-            patch("app.api.v1.scans.check_ssrf") as mock_ssrf,
-            patch("app.api.v1.scans.collect", new_callable=AsyncMock) as mock_collect,
-        ):
-            from app.collector.collector import CollectorResponse
-            from app.core.ssrf_guard import ResolvedIP
+    @patch("app.api.v1.scans.collect", new_callable=AsyncMock)
+    @patch("app.api.v1.scans.check_ssrf")
+    def test_valid_url_returns_scan_id(self, mock_ssrf, mock_collect):
+        from app.collector.collector import CollectorResponse
+        from app.core.ssrf_guard import ResolvedIP
 
-            mock_ssrf.return_value = ResolvedIP("8.8.8.8", 4, False, False, False, False, False)
-            mock_collect.return_value = CollectorResponse(
-                status_code=200,
-                headers={"content-type": "text/html"},
-                content=b"<html>test</html>",
-                content_type="text/html",
-                response_time_ms=100.0,
-                redirect_count=0,
-                final_url="https://example.com/",
-            )
+        mock_ssrf.return_value = ResolvedIP("8.8.8.8", 4, False, False, False, False, False)
+        mock_collect.return_value = CollectorResponse(
+            status_code=200,
+            headers={"content-type": "text/html"},
+            content=b"<html>test</html>",
+            content_type="text/html",
+            response_time_ms=100.0,
+            redirect_count=0,
+            final_url="https://example.com/",
+        )
 
-            response = client.post("/api/v1/scans", json={"url": "https://example.com"})
+        response = client.post("/api/v1/scans", json={"url": "https://example.com"})
 
-            assert response.status_code == 200
-            data = response.json()
-            assert "scan_id" in data
-            assert data["status"] == "completed"
-            assert data["metadata"] is not None
-            assert data["metadata"]["status_code"] == 200
-            assert data["metadata"]["content_length"] == 17
+        assert response.status_code == 200
+        data = response.json()
+        assert "scan_id" in data
+        assert data["status"] == "completed"
+        assert data["metadata"] is not None
+        assert data["metadata"]["status_code"] == 200
+        assert data["metadata"]["content_length"] == 17
 
     def test_invalid_scheme_returns_error(self):
         response = client.post("/api/v1/scans", json={"url": "ftp://example.com"})
@@ -97,9 +95,9 @@ class TestCreateScan:
         assert data["status"] == "failed"
         assert data["error_code"] == "PRIVATE_ADDRESS_BLOCKED"
 
-    @patch("app.api.v1.scans.check_ssrf")
     @patch("app.api.v1.scans.collect", new_callable=AsyncMock)
-    def test_collector_timeout(self, mock_collect, mock_ssrf):
+    @patch("app.api.v1.scans.check_ssrf")
+    def test_collector_timeout(self, mock_ssrf, mock_collect):
         from app.collector.collector import CollectorError
         from app.core.ssrf_guard import ResolvedIP
 
@@ -113,9 +111,9 @@ class TestCreateScan:
         assert data["status"] == "failed"
         assert data["error_code"] == "TIMEOUT"
 
-    @patch("app.api.v1.scans.check_ssrf")
     @patch("app.api.v1.scans.collect", new_callable=AsyncMock)
-    def test_collector_too_many_redirects(self, mock_collect, mock_ssrf):
+    @patch("app.api.v1.scans.check_ssrf")
+    def test_collector_too_many_redirects(self, mock_ssrf, mock_collect):
         from app.collector.collector import CollectorError
         from app.core.ssrf_guard import ResolvedIP
 
@@ -129,9 +127,9 @@ class TestCreateScan:
         assert data["status"] == "failed"
         assert data["error_code"] == "TOO_MANY_REDIRECTS"
 
-    @patch("app.api.v1.scans.check_ssrf")
     @patch("app.api.v1.scans.collect", new_callable=AsyncMock)
-    def test_collector_response_too_large(self, mock_collect, mock_ssrf):
+    @patch("app.api.v1.scans.check_ssrf")
+    def test_collector_response_too_large(self, mock_ssrf, mock_collect):
         from app.collector.collector import CollectorError
         from app.core.ssrf_guard import ResolvedIP
 

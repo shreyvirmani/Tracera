@@ -1,19 +1,25 @@
-import { render, screen } from "@testing-library/react";
-import Home from "../app/page";
+import { render, screen } from '@testing-library/react';
+import Home from '@/app/page';
 
-describe("Home page", () => {
-  it("renders Tracera title", () => {
+describe('Home page', () => {
+  it('renders Tracera title', () => {
     render(<Home />);
-    expect(screen.getByText("Tracera")).toBeInTheDocument();
+    expect(screen.getByText('Tracera')).toBeInTheDocument();
   });
 
-  it("renders subtitle", () => {
+  it('renders subtitle', () => {
     render(<Home />);
-    expect(screen.getByText("Website Risk Assessment Platform")).toBeInTheDocument();
+    expect(screen.getByText('Website Risk Assessment Platform')).toBeInTheDocument();
   });
 
-  it("renders bootstrap status", () => {
+  it('renders scan form', () => {
     render(<Home />);
-    expect(screen.getByText("Project bootstrap completed.")).toBeInTheDocument();
+    expect(screen.getByLabelText('Website URL')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Start Scan/i })).toBeInTheDocument();
+  });
+
+  it('renders authorization notice', () => {
+    render(<Home />);
+    expect(screen.getByText(/authorization to test/i)).toBeInTheDocument();
   });
 });
