@@ -1,6 +1,6 @@
 # Tracera ML Phase 6: Common Crawl WAT Pilot Report
 
-**Generated:** 2026-09-12T23:44:07.220952
+**Generated:** 2026-09-13T11:41:07.114784
 **Schema Version:** v1
 **Real Common Crawl Data:** NO (synthetic fallback)
 **Crawl ID:** CC-MAIN-2026-34
@@ -9,8 +9,10 @@
 ## Dataset Summary
 - **Total WAT records processed:** 5,000
 - **Usable records (200 OK + HTML):** 985
+- **Unique origins before dedupe:** 635
 - **Unique origins after dedupe:** 635
-- **Duplicate rate:** 0.00%
+- **Duplicate rate:** 35.53%
+- **Duplicate records removed:** 350
 - **Filtered (non-200):** 1,459
 - **Filtered (non-HTML):** 2,556
 - **Extraction failed:** 0
@@ -27,24 +29,24 @@
 - **Status codes:** {200: 635}
 
 ## Security Headers
-- **hsts_present:** 241 present (38.0%), 394 absent
+- **hsts_present:** 242 present (38.1%), 393 absent
 - **csp_present:** 176 present (27.7%), 459 absent
-- **x_content_type_options_present:** 334 present (52.6%), 301 absent
-- **x_frame_options_present:** 367 present (57.8%), 268 absent
-- **referrer_policy_present:** 240 present (37.8%), 395 absent
-- **permissions_policy_present:** 112 present (17.6%), 523 absent
+- **x_content_type_options_present:** 335 present (52.8%), 300 absent
+- **x_frame_options_present:** 366 present (57.6%), 269 absent
+- **referrer_policy_present:** 239 present (37.6%), 396 absent
+- **permissions_policy_present:** 111 present (17.5%), 524 absent
 
 ## Cookies
-- **Origins with cookies:** 434
-- **Cookie count distribution:** {0: 201, 1: 137, 2: 98, 3: 79, 4: 52, 5: 36, 6: 32}
+- **Origins with cookies:** 435
+- **Cookie count distribution:** {0: 200, 1: 137, 2: 98, 3: 80, 4: 52, 5: 36, 6: 32}
 - **cookie_secure_ratio:** mean=0.450, median=0.500, range=[0.000, 1.000]
 - **cookie_httponly_ratio:** mean=0.316, median=0.250, range=[0.000, 1.000]
 - **cookie_samesite_strict_ratio:** mean=0.148, median=0.000, range=[0.000, 1.000]
 - **cookie_samesite_lax_ratio:** mean=0.135, median=0.000, range=[0.000, 1.000]
-- **cookie_samesite_none_ratio:** mean=0.088, median=0.000, range=[0.000, 1.000]
+- **cookie_samesite_none_ratio:** mean=0.089, median=0.000, range=[0.000, 1.000]
 
 ## Technology Disclosure
-- **server_header_present:** 515 (81.1%)
+- **server_header_present:** 514 (80.9%)
 - **x_powered_by_present:** 181 (28.5%)
 
 ## Domain Concentration
@@ -63,12 +65,13 @@
   - googleusercontent.com: 12
 
 ## Missingness
-- **server_header_value:** 120 (18.9%)
+- **server_header_value:** 121 (19.1%)
 - **x_powered_by_value:** 454 (71.5%)
 
 ## Sanity Checks
 - **no_duplicate_origins:** [OK] PASS
 - **no_eTLD1_leakage:** [OK] PASS
+- **duplicate_rate_reasonable:** [OK] PASS
 - **binary_features_are_binary:** [FAIL] FAIL
 - **ratios_in_range:** [OK] PASS
 - **cookie_count_non_negative:** [OK] PASS

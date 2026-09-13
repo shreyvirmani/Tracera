@@ -9,6 +9,19 @@ env/
 .venv/
 .env
 
+# Credentials & Secrets
+*.json
+!package.json
+!package-lock.json
+*.key
+*.pem
+*.p12
+*.pfx
+gcp-credentials*.json
+google-credentials*.json
+bigquery-credentials*.json
+service-account*.json
+
 # IDE
 .vscode/
 .idea/
@@ -39,3 +52,11 @@ build/
 
 # Alembic
 alembic/versions/*.pyc
+
+# BigQuery / Data
+ml/data/http_archive/raw/
+ml/data/http_archive/processed/
+ml/data/http_archive/reports/
+ml/data/pilot/raw/
+ml/data/pilot/processed/
+ml/data/pilot/reports/

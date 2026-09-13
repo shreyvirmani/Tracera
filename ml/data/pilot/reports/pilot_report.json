@@ -1,6 +1,6 @@
 {
   "pilot_info": {
-    "timestamp": "2026-09-12T23:44:07.220952",
+    "timestamp": "2026-09-13T11:41:07.114784",
     "used_real_common_crawl_data": false,
     "crawl_id": "CC-MAIN-2026-34",
     "seed": 42,
@@ -9,8 +9,10 @@
   "dataset_summary": {
     "total_wat_records_processed": 5000,
     "usable_records": 985,
+    "unique_origins_before_dedupe": 635,
     "unique_origins_after_dedupe": 635,
-    "duplicate_rate": 0.0,
+    "duplicate_rate": 0.3553,
+    "duplicate_records_removed": 350,
     "filtering": {
       "non_200_filtered": 1459,
       "non_html_filtered": 2556,
@@ -37,9 +39,9 @@
   "html_percentage": 100.0,
   "security_headers": {
     "hsts_present": {
-      "present": 241,
-      "absent": 394,
-      "present_pct": 38.0
+      "present": 242,
+      "absent": 393,
+      "present_pct": 38.1
     },
     "csp_present": {
       "present": 176,
@@ -47,33 +49,33 @@
       "present_pct": 27.7
     },
     "x_content_type_options_present": {
-      "present": 334,
-      "absent": 301,
-      "present_pct": 52.6
+      "present": 335,
+      "absent": 300,
+      "present_pct": 52.8
     },
     "x_frame_options_present": {
-      "present": 367,
-      "absent": 268,
-      "present_pct": 57.8
+      "present": 366,
+      "absent": 269,
+      "present_pct": 57.6
     },
     "referrer_policy_present": {
-      "present": 240,
-      "absent": 395,
-      "present_pct": 37.8
+      "present": 239,
+      "absent": 396,
+      "present_pct": 37.6
     },
     "permissions_policy_present": {
-      "present": 112,
-      "absent": 523,
-      "present_pct": 17.6
+      "present": 111,
+      "absent": 524,
+      "present_pct": 17.5
     }
   },
   "cookie_statistics": {
-    "origins_with_cookies": 434,
+    "origins_with_cookies": 435,
     "cookie_count_distribution": {
-      "0": 201,
+      "0": 200,
       "1": 137,
       "2": 98,
-      "3": 79,
+      "3": 80,
       "4": 52,
       "5": 36,
       "6": 32
@@ -103,7 +105,7 @@
       "max": 1.0
     },
     "cookie_samesite_none_ratio": {
-      "mean": 0.088,
+      "mean": 0.089,
       "median": 0.0,
       "min": 0.0,
       "max": 1.0
@@ -111,8 +113,8 @@
   },
   "technology_disclosure": {
     "server_header_present": {
-      "present": 515,
-      "present_pct": 81.1
+      "present": 514,
+      "present_pct": 80.9
     },
     "x_powered_by_present": {
       "present": 181,
@@ -159,8 +161,8 @@
   },
   "missingness": {
     "server_header_value": {
-      "missing_count": 120,
-      "missing_pct": 18.9
+      "missing_count": 121,
+      "missing_pct": 19.1
     },
     "x_powered_by_value": {
       "missing_count": 454,
@@ -321,6 +323,7 @@
   "sanity_checks": {
     "no_duplicate_origins": true,
     "no_eTLD1_leakage": true,
+    "duplicate_rate_reasonable": true,
     "binary_features_are_binary": false,
     "ratios_in_range": true,
     "cookie_count_non_negative": "True",
