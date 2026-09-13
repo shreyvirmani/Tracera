@@ -20,7 +20,8 @@ class TestHTTPArchiveConfig:
     def test_default_config(self):
         """Test default configuration values."""
         config = HTTPArchiveConfig()
-        assert config.project_id == "httparchive"
+        assert config.source_project_id == "httparchive"
+        assert config.billing_project_id == "tracera-508514"
         assert config.dataset_id == "summary_pages"
         assert config.client == "desktop"
         assert config.feature_schema_version == "v1"
@@ -29,23 +30,26 @@ class TestHTTPArchiveConfig:
     def test_custom_config(self):
         """Test custom configuration values."""
         config = HTTPArchiveConfig(
-            project_id="my-project",
+            source_project_id="my-project",
+            billing_project_id="my-billing-project",
             dataset_id="custom_dataset",
             client="mobile",
             crawl_date="2024-01-01",
         )
-        assert config.project_id == "my-project"
+        assert config.source_project_id == "my-project"
+        assert config.billing_project_id == "my-billing-project"
         assert config.dataset_id == "custom_dataset"
         assert config.client == "mobile"
         assert config.crawl_date == "2024-01-01"
     
     def test_table_id_generation(self):
-        """Test table ID generation."""
+        """Test table ID generation uses source project."""
         config = HTTPArchiveConfig(
+            source_project_id="my-source-project",
             table_prefix="2025_07_01_",
             client="desktop",
         )
-        assert config.table_id == "httparchive.summary_pages.2025_07_01_desktop"
+        assert config.table_id == "my-source-project.summary_pages.2025_07_01_desktop"
     
     def test_get_table_id(self):
         """Test get_table_id method."""

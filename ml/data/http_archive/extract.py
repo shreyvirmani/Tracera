@@ -329,9 +329,12 @@ def get_bigquery_client(project_id: str):
 
 
 def render_query(config: HTTPArchiveConfig) -> str:
-    """Render the SQL query with config parameters."""
+    """Render the SQL query with config parameters.
+
+    Uses source_project_id for the data source, billing_project_id is used only for the BigQuery client.
+    """
     return HTTP_ARCHIVE_QUERY.format(
-        project_id=config.project_id,
+        project_id=config.source_project_id,
         dataset_id=config.dataset_id,
         table_prefix=config.table_prefix,
         client=config.client,
@@ -372,15 +375,21 @@ def execute_query_with_config(
 
 
 def extract_from_bigquery(config: HTTPArchiveConfig) -> pd.DataFrame:
-    """Extract data from HTTP Archive BigQuery."""
-    print(f"Connecting to BigQuery (project: {config.project_id})...")
+    """Extract data from HTTP Archive BigQuery.
     
-    client = bigquery.Client(project=config.project_id)
+    Uses billing_project_id for BigQuery client (billing project)
+    and source_project_id for the data source table.
+    """
+    print(f"Connecting to BigQuery (billing project: {config.billing_project_id}, source: {config.source_project_id})...")
+    
+    client = bigquery.Client(project=config.billing_project_id)
     query = render_query(config)
     
     print(f"Executing query against {config.get_table_id()}...")
     print(f"  Crawl: {config.crawl_name} ({config.crawl_date})")
     print(f"  Client: {config.client}")
+    print(f"  Billing project: {config.billing_project_id}")
+    print(f"  Source project: {config.source_project_id}")
     
     df = execute_query_with_config(client, query, config)
     

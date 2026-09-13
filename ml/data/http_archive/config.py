@@ -9,16 +9,20 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import List, Optional
 from pathlib import Path
+import os
 
 
 @dataclass
 class HTTPArchiveConfig:
     """Configuration for HTTP Archive BigQuery data extraction."""
     
-    # Source dataset configuration
-    project_id: str = "httparchive"  # BigQuery project ID
+    # Source dataset configuration (where the data lives)
+    source_project_id: str = "httparchive"  # Source BigQuery project ID (the data owner)
     dataset_id: str = "summary_pages"  # BigQuery dataset (summary_pages or summary_requests)
     table_prefix: str = "2025_07_01_"  # Table prefix for specific crawl (YYYY_MM_DD_)
+    
+    # Billing/Query project configuration (who pays for the query)
+    billing_project_id: str = field(default_factory=lambda: os.getenv("TRACERA_GCP_PROJECT_ID", "tracera-508514"))
     
     # Crawl identification
     crawl_date: str = "2025-07-01"  # Crawl date (YYYY-MM-DD)
@@ -62,17 +66,22 @@ class HTTPArchiveConfig:
         self.processed_dir.mkdir(parents=True, exist_ok=True)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
         
-        # Construct full table ID
-        self.table_id = f"{self.project_id}.{self.dataset_id}.{self.table_prefix}{self.client}"
+        # Construct full table ID using SOURCE project (where data lives)
+        self.table_id = f"{self.source_project_id}.{self.dataset_id}.{self.table_prefix}{self.client}"
     
     def get_table_id(self) -> str:
-        """Get the full BigQuery table ID."""
+        """Get the full BigQuery table ID (source project)."""
         return self.table_id
+    
+    def get_billing_project_id(self) -> str:
+        """Get the billing project ID for BigQuery client."""
+        return self.billing_project_id
     
     def to_dict(self) -> dict:
         """Serialize config to dictionary for reporting."""
         return {
-            "project_id": self.project_id,
+            "source_project_id": self.source_project_id,
+            "billing_project_id": self.billing_project_id,
             "dataset_id": self.dataset_id,
             "table_prefix": self.table_prefix,
             "crawl_date": self.crawl_date,
