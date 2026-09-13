@@ -101,6 +101,76 @@ class DatasetVersionResponse(BaseModel):
     created_at: str
 
 
+class CreateModelRequest(BaseModel):
+    model_version: str = Field(..., pattern=r"^v?\d+\.\d+\.\d+$")
+    dataset_version: str
+    algorithm: str = Field(..., pattern="^(logistic_regression|random_forest|xgboost)$")
+    hyperparameters: dict = Field(default_factory=dict)
+    metrics: dict = Field(default_factory=dict)
+    notes: str | None = None
+
+
+@router.post("/models", status_code=status.HTTP_201_CREATED)
+async def create_model(
+    request: CreateModelRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    dv = await get_dataset_version(db, request.dataset_version)
+    if not dv:
+        raise HTTPException(status_code=404, detail="Dataset version not found")
+
+    mv = await create_model_version(
+        db=db,
+        model_version=request.model_version,
+        dataset_version=request.dataset_version,
+        feature_schema_version="features-v1",
+        algorithm=request.algorithm,
+        hyperparameters=request.hyperparameters,
+        metrics=request.metrics,
+        notes=request.notes,
+    )
+    return {"model_version": mv.model_version, "created_at": mv.trained_at.isoformat()}
+
+
+@router.get("/models", response_model=list[dict])
+async def list_models(
+    limit: int = Query(default=20, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    models = await list_model_versions(db, limit, offset)
+    return [
+        {
+            "model_version": m.model_version,
+            "dataset_version": m.dataset_version,
+            "algorithm": m.algorithm,
+            "metrics": m.metrics,
+            "trained_at": m.trained_at.isoformat(),
+        }
+        for m in models
+    ]
+
+
+@router.get("/models/{model_version}", response_model=dict)
+async def get_model(
+    model_version: str,
+    db: AsyncSession = Depends(get_db),
+):
+    mv = await get_model_version(db, model_version)
+    if not mv:
+        raise HTTPException(status_code=404, detail="Model version not found")
+    return {
+        "model_version": mv.model_version,
+        "dataset_version": mv.dataset_version,
+        "feature_schema_version": mv.feature_schema_version,
+        "algorithm": mv.algorithm,
+        "hyperparameters": mv.hyperparameters,
+        "metrics": mv.metrics,
+        "notes": mv.notes,
+        "trained_at": mv.trained_at.isoformat(),
+    }
+
+
 @router.get("", response_model=list[DatasetVersionResponse])
 async def list_datasets(
     limit: int = Query(default=20, le=100),
@@ -199,74 +269,4 @@ async def get_dataset_stats(
         "test_samples": dv.test_samples,
         "label_distribution": dv.label_distribution,
         "split_counts": counts,
-    }
-
-
-class CreateModelRequest(BaseModel):
-    model_version: str = Field(..., pattern=r"^v?\d+\.\d+\.\d+$")
-    dataset_version: str
-    algorithm: str = Field(..., pattern="^(logistic_regression|random_forest|xgboost)$")
-    hyperparameters: dict = Field(default_factory=dict)
-    metrics: dict = Field(default_factory=dict)
-    notes: str | None = None
-
-
-@router.post("/models", status_code=status.HTTP_201_CREATED)
-async def create_model(
-    request: CreateModelRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    dv = await get_dataset_version(db, request.dataset_version)
-    if not dv:
-        raise HTTPException(status_code=404, detail="Dataset version not found")
-
-    mv = await create_model_version(
-        db=db,
-        model_version=request.model_version,
-        dataset_version=request.dataset_version,
-        feature_schema_version="features-v1",
-        algorithm=request.algorithm,
-        hyperparameters=request.hyperparameters,
-        metrics=request.metrics,
-        notes=request.notes,
-    )
-    return {"model_version": mv.model_version, "created_at": mv.trained_at.isoformat()}
-
-
-@router.get("/models", response_model=list[dict])
-async def list_models(
-    limit: int = Query(default=20, le=100),
-    offset: int = Query(default=0, ge=0),
-    db: AsyncSession = Depends(get_db),
-):
-    models = await list_model_versions(db, limit, offset)
-    return [
-        {
-            "model_version": m.model_version,
-            "dataset_version": m.dataset_version,
-            "algorithm": m.algorithm,
-            "metrics": m.metrics,
-            "trained_at": m.trained_at.isoformat(),
-        }
-        for m in models
-    ]
-
-
-@router.get("/models/{model_version}", response_model=dict)
-async def get_model(
-    model_version: str,
-    db: AsyncSession = Depends(get_db),
-):
-    mv = await get_model_version(db, model_version)
-    if not mv:
-        raise HTTPException(status_code=404, detail="Model version not found")
-    return {
-        "model_version": mv.model_version,
-        "dataset_version": mv.dataset_version,
-        "feature_schema_version": mv.feature_schema_version,
-        "algorithm": mv.algorithm,
-        "hyperparameters": mv.hyperparameters,
-        "metrics": mv.metrics,
-        "notes": mv.notes,
-        "trained_at": mv.trained_at.isoformat(),
     }
