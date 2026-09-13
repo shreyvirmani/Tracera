@@ -221,7 +221,7 @@ class TestDatasetMetadata:
             scheme="https",
             host="example.com",
             port=443,
-            origin="https://example.com",
+            origin="https://example.com:443",
             registrable_domain="example.com",
             crawl_timestamp="2026-01-15T10:30:00Z",
             warc_filename="",
@@ -229,10 +229,18 @@ class TestDatasetMetadata:
             server_header_value="nginx/1.24",
             x_powered_by_value="Express",
             content_type="text/html; charset=utf-8",
+            cookie_info_available=True,
         )
         assert meta.source_type == "live_scan"
         assert meta.registrable_domain == "example.com"
         assert meta.server_header_value == "nginx/1.24"
+        assert meta.cookie_info_available is True
+
+    def test_metadata_defaults(self):
+        """Test metadata defaults for optional fields."""
+        meta = DatasetMetadata()
+        assert meta.cookie_info_available is False
+        assert meta.server_header_value is None
 
     def test_metadata_excludes_model_features(self):
         """Metadata should not contain any ML feature fields."""

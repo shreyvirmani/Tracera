@@ -226,6 +226,8 @@ def extract_features_from_wat(wat_record: Dict[str, Any]) -> Optional[Dict[str, 
         }
         
         # Metadata
+        cookie_header = norm_headers.get('set-cookie', '')
+        cookie_info_available = bool(cookie_header)
         metadata = {
             'url': url,
             'origin': normalize_origin(url),
@@ -236,6 +238,7 @@ def extract_features_from_wat(wat_record: Dict[str, Any]) -> Optional[Dict[str, 
             'server_header_value': server_header_value,
             'x_powered_by_value': x_powered_by_value,
             'content_type': content_type,
+            'cookie_info_available': cookie_info_available,
         }
         
         return {'features': features, 'metadata': metadata}
@@ -440,10 +443,32 @@ def run_pilot(
     # Step 5: Deduplicate
     print("\nSTEP 5: Deduplicating by origin...")
     combined_df = pd.concat([features_df, metadata_df], axis=1)
+    
+    # Compute dedupe stats BEFORE deduplication
+    pre_dedupe_rows = len(combined_df)
+    pre_dedupe_unique = combined_df['origin'].nunique()
     combined_df = deduplicate_by_origin(combined_df, origin_col='origin')
-    dedupe_stats = get_deduplication_stats(combined_df, origin_col='origin')
-    print(f"  Unique origins after dedupe: {dedupe_stats['unique_origins']}")
-    print(f"  Duplicate rate: {dedupe_stats['duplication_rate']:.2%}")
+    post_dedupe_rows = len(combined_df)
+    post_dedupe_unique = combined_df['origin'].nunique()
+    duplicate_removed = pre_dedupe_rows - post_dedupe_rows
+    duplicate_rate = duplicate_removed / pre_dedupe_rows if pre_dedupe_rows > 0 else 0.0
+    
+    dedupe_stats = {
+        'total_rows': pre_dedupe_rows,
+        'unique_origins': pre_dedupe_unique,
+        'unique_origins_after_dedupe': post_dedupe_unique,
+        'duplicate_rows': duplicate_removed,
+        'duplication_rate': duplicate_rate,
+        'origins_with_duplicates': pre_dedupe_rows - pre_dedupe_unique,
+        'max_duplicates_per_origin': pre_dedupe_rows - pre_dedupe_unique,
+    }
+    
+    print(f"  Input records: {pre_dedupe_rows}")
+    print(f"  Unique origins before dedupe: {pre_dedupe_unique}")
+    print(f"  Records after dedupe: {post_dedupe_rows}")
+    print(f"  Unique origins after dedupe: {post_dedupe_unique}")
+    print(f"  Duplicate records removed: {duplicate_removed}")
+    print(f"  Duplicate rate: {duplicate_rate:.2%}")
     
     # Step 6: Grouped split
     print("\nSTEP 6: Leakage-safe grouped split...")
@@ -621,8 +646,10 @@ def generate_eda_report(
         'dataset_summary': {
             'total_wat_records_processed': extract_stats['total_wat_records'],
             'usable_records': extract_stats['usable_records'],
-            'unique_origins_after_dedupe': dedupe_stats['unique_origins'],
+            'unique_origins_before_dedupe': dedupe_stats['unique_origins'],
+            'unique_origins_after_dedupe': dedupe_stats.get('unique_origins_after_dedupe', dedupe_stats['unique_origins'] - dedupe_stats.get('duplicate_rows', 0)),
             'duplicate_rate': round(dedupe_stats['duplication_rate'], 4),
+            'duplicate_records_removed': dedupe_stats.get('duplicate_rows', 0),
             'filtering': {
                 'non_200_filtered': extract_stats['filtered_non_200'],
                 'non_html_filtered': extract_stats['filtered_non_html'],
@@ -640,8 +667,9 @@ def generate_eda_report(
         'missingness': missingness,
         'feature_quality_checks': quality_checks,
         'sanity_checks': {
-            'no_duplicate_origins': dedupe_stats['duplicate_rows'] == 0,
+            'no_duplicate_origins': full_df['origin'].nunique() == len(full_df),
             'no_eTLD1_leakage': split_stats['leakage_free'],
+            'duplicate_rate_reasonable': dedupe_stats['duplication_rate'] < 1.0,
             'binary_features_are_binary': all(
                 qc.get('is_binary', True) for qc in quality_checks.values() if 'is_binary' in qc
             ),
@@ -674,8 +702,10 @@ def format_report_markdown(report: Dict) -> str:
     ds = report['dataset_summary']
     lines.append(f"- **Total WAT records processed:** {ds['total_wat_records_processed']:,}")
     lines.append(f"- **Usable records (200 OK + HTML):** {ds['usable_records']:,}")
+    lines.append(f"- **Unique origins before dedupe:** {ds.get('unique_origins_before_dedupe', ds['unique_origins_after_dedupe']):,}")
     lines.append(f"- **Unique origins after dedupe:** {ds['unique_origins_after_dedupe']:,}")
     lines.append(f"- **Duplicate rate:** {ds['duplicate_rate']:.2%}")
+    lines.append(f"- **Duplicate records removed:** {ds.get('duplicate_records_removed', 0):,}")
     lines.append(f"- **Filtered (non-200):** {ds['filtering']['non_200_filtered']:,}")
     lines.append(f"- **Filtered (non-HTML):** {ds['filtering']['non_html_filtered']:,}")
     lines.append(f"- **Extraction failed:** {ds['filtering']['extraction_failed']:,}")

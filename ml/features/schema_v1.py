@@ -291,6 +291,9 @@ class DatasetMetadata:
     x_powered_by_value: Optional[str] = None
     content_type: Optional[str] = None
 
+    # Cookie metadata (for interpreting cookie ratios correctly)
+    cookie_info_available: bool = False  # True if Set-Cookie header was present/parsed
+
     # Additional context
     extra: dict = field(default_factory=dict)
 
@@ -362,6 +365,9 @@ def extract_metadata_from_production(
     # Extract registrable domain (eTLD+1) - simplified, will use publicsuffix2 in preprocessing
     registrable_domain = host  # Placeholder; real extraction in ml/preprocessing/normalize.py
 
+    # Cookie metadata: true if Set-Cookie header was present
+    cookie_info_available = features.cookie_count > 0
+
     return DatasetMetadata(
         source_type="live_scan",
         source_identifier=scan_id,
@@ -377,6 +383,7 @@ def extract_metadata_from_production(
         server_header_value=features.server_header_value,
         x_powered_by_value=features.x_powered_by_value,
         content_type=features.content_type,
+        cookie_info_available=cookie_info_available,
     )
 
 
