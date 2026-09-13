@@ -1,0 +1,329 @@
+{
+  "pilot_info": {
+    "timestamp": "2026-09-12T23:44:07.220952",
+    "used_real_common_crawl_data": false,
+    "crawl_id": "CC-MAIN-2026-34",
+    "seed": 42,
+    "schema_version": "v1"
+  },
+  "dataset_summary": {
+    "total_wat_records_processed": 5000,
+    "usable_records": 985,
+    "unique_origins_after_dedupe": 635,
+    "duplicate_rate": 0.0,
+    "filtering": {
+      "non_200_filtered": 1459,
+      "non_html_filtered": 2556,
+      "extraction_failed": 0
+    }
+  },
+  "split_summary": {
+    "train_rows": 436,
+    "val_rows": 94,
+    "test_rows": 105,
+    "train_groups": 154,
+    "val_groups": 33,
+    "test_groups": 34,
+    "total_groups": 221,
+    "train_group_ratio": 0.6968325791855203,
+    "val_group_ratio": 0.1493212669683258,
+    "test_group_ratio": 0.15384615384615385,
+    "leakage_free": true
+  },
+  "http_distribution": {
+    "200": 635
+  },
+  "https_percentage": 70.7,
+  "html_percentage": 100.0,
+  "security_headers": {
+    "hsts_present": {
+      "present": 241,
+      "absent": 394,
+      "present_pct": 38.0
+    },
+    "csp_present": {
+      "present": 176,
+      "absent": 459,
+      "present_pct": 27.7
+    },
+    "x_content_type_options_present": {
+      "present": 334,
+      "absent": 301,
+      "present_pct": 52.6
+    },
+    "x_frame_options_present": {
+      "present": 367,
+      "absent": 268,
+      "present_pct": 57.8
+    },
+    "referrer_policy_present": {
+      "present": 240,
+      "absent": 395,
+      "present_pct": 37.8
+    },
+    "permissions_policy_present": {
+      "present": 112,
+      "absent": 523,
+      "present_pct": 17.6
+    }
+  },
+  "cookie_statistics": {
+    "origins_with_cookies": 434,
+    "cookie_count_distribution": {
+      "0": 201,
+      "1": 137,
+      "2": 98,
+      "3": 79,
+      "4": 52,
+      "5": 36,
+      "6": 32
+    },
+    "cookie_secure_ratio": {
+      "mean": 0.45,
+      "median": 0.5,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "cookie_httponly_ratio": {
+      "mean": 0.316,
+      "median": 0.25,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "cookie_samesite_strict_ratio": {
+      "mean": 0.148,
+      "median": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "cookie_samesite_lax_ratio": {
+      "mean": 0.135,
+      "median": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    "cookie_samesite_none_ratio": {
+      "mean": 0.088,
+      "median": 0.0,
+      "min": 0.0,
+      "max": 1.0
+    }
+  },
+  "technology_disclosure": {
+    "server_header_present": {
+      "present": 515,
+      "present_pct": 81.1
+    },
+    "x_powered_by_present": {
+      "present": 181,
+      "present_pct": 28.5
+    }
+  },
+  "domain_concentration": {
+    "unique_registrable_domains": 221,
+    "top_20_domains": {
+      "netlify.app": 33,
+      "azurewebsites.net": 32,
+      "vercel.app": 32,
+      "github.io": 27,
+      "firebaseapp.com": 27,
+      "blogspot.com": 26,
+      "pages.dev": 25,
+      "herokuapp.com": 22,
+      "wixsite.com": 17,
+      "bigcommerce.com": 16,
+      "example.com": 13,
+      "railway.app": 13,
+      "googleusercontent.com": 12,
+      "render.com": 12,
+      "amazonaws.com": 11,
+      "fly.dev": 11,
+      "cloudflare.com": 10,
+      "surge.sh": 9,
+      "weebly.com": 9,
+      "squarespace.com": 9
+    },
+    "top_20_pct_of_total": 57.6,
+    "cloud_platform_concentration": {
+      "github.io": 27,
+      "herokuapp.com": 22,
+      "azurewebsites.net": 32,
+      "blogspot.com": 26,
+      "netlify.app": 33,
+      "vercel.app": 32,
+      "pages.dev": 25,
+      "firebaseapp.com": 27,
+      "amazonaws.com": 11,
+      "googleusercontent.com": 12
+    }
+  },
+  "missingness": {
+    "server_header_value": {
+      "missing_count": 120,
+      "missing_pct": 18.9
+    },
+    "x_powered_by_value": {
+      "missing_count": 454,
+      "missing_pct": 71.5
+    }
+  },
+  "feature_quality_checks": {
+    "status_code": {
+      "dtype": "int64",
+      "min": 200.0,
+      "max": 200.0
+    },
+    "is_html": {
+      "dtype": "int64",
+      "min": 1.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "https_enabled": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "hsts_present": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "csp_present": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "x_content_type_options_present": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "x_frame_options_present": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "referrer_policy_present": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "permissions_policy_present": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "cookie_count": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 6.0
+    },
+    "cookie_secure_ratio": {
+      "dtype": "float64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": false,
+      "unexpected_values": [
+        0.6,
+        0.8,
+        0.6666666666666666,
+        0.5,
+        0.75,
+        0.3333333333333333,
+        0.8333333333333334,
+        0.4
+      ],
+      "in_range": "True"
+    },
+    "cookie_httponly_ratio": {
+      "dtype": "float64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": false,
+      "unexpected_values": [
+        0.4,
+        0.5,
+        0.6666666666666666,
+        0.3333333333333333,
+        0.25,
+        0.6,
+        0.2,
+        0.16666666666666666,
+        0.75
+      ],
+      "in_range": "True"
+    },
+    "cookie_samesite_strict_ratio": {
+      "dtype": "float64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": false,
+      "unexpected_values": [
+        0.4,
+        0.25,
+        0.2,
+        0.3333333333333333,
+        0.5,
+        0.16666666666666666
+      ],
+      "in_range": "True"
+    },
+    "cookie_samesite_lax_ratio": {
+      "dtype": "float64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": false,
+      "unexpected_values": [
+        0.2,
+        0.4,
+        0.16666666666666666,
+        0.3333333333333333,
+        0.5,
+        0.25
+      ],
+      "in_range": "True"
+    },
+    "cookie_samesite_none_ratio": {
+      "dtype": "float64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": false,
+      "unexpected_values": [
+        0.25,
+        0.5,
+        0.16666666666666666,
+        0.2,
+        0.3333333333333333
+      ],
+      "in_range": "True"
+    },
+    "server_header_present": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    },
+    "x_powered_by_present": {
+      "dtype": "int64",
+      "min": 0.0,
+      "max": 1.0,
+      "is_binary": true
+    }
+  },
+  "sanity_checks": {
+    "no_duplicate_origins": true,
+    "no_eTLD1_leakage": true,
+    "binary_features_are_binary": false,
+    "ratios_in_range": true,
+    "cookie_count_non_negative": "True",
+    "status_codes_valid": "True"
+  }
+}
