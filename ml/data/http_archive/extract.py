@@ -20,7 +20,7 @@ import argparse
 import sys
 import warnings
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from typing import Dict, Any, List, Optional, Iterator
 from dataclasses import asdict
 
@@ -77,44 +77,69 @@ except ImportError:
 
 HTTP_ARCHIVE_QUERY = """
 -- HTTP Archive BigQuery Extraction Query
--- Extracts page-level data from HTTP Archive summary_pages table
+-- Extracts page-level data from HTTP Archive crawl.pages table
 -- Maps to Tracera's 17-feature schema
 
 WITH
--- Base page data from HTTP Archive summary_pages
+-- Base page data from HTTP Archive crawl.pages
 base_pages AS (
     SELECT
-        page,
-        url,
-        status_code,
-        content_type,
-        mime_type,
-        response_headers,
-        request_headers,
-        first_html,
+        page as url,
+        client,
+        date as crawl_date,
         is_root_page,
-        load_time,
-        page_size,
-        crawl_time,
-        client
-    FROM `{project_id}.{dataset_id}.{table_prefix}{client}`
+        payload
+    FROM `httparchive.crawl.pages`
     WHERE 
-        status_code = 200
-        AND (mime_type LIKE 'text/html%' OR mime_type LIKE 'application/xhtml+xml%')
-        AND is_root_page = true
+        is_root_page = true
+        AND date >= '{start_date}'
+        AND date < '{end_date}'
+        AND client = '{client}'
 ),
 
--- Parse response headers from JSON array
-headers_parsed AS (
+-- Extract HTTP response fields from payload JSON
+response_extracted AS (
     SELECT
-        *,
+        url,
+        client,
+        crawl_date,
+        
+        -- Extract HTTP status code
+        CAST(JSON_EXTRACT_SCALAR(payload, '$.response.status') AS INT64) as status_code,
+        
+        -- Extract content type
+        JSON_EXTRACT_SCALAR(payload, '$.response.content.mimeType') as content_type,
+        
+        -- Extract response headers as array
+        JSON_QUERY_ARRAY(payload, '$.response.headers') as response_headers,
+        
+        -- Extract request headers
+        JSON_QUERY_ARRAY(payload, '$.request.headers') as request_headers,
+        
+        -- Check if HTML
+        CASE 
+            WHEN JSON_EXTRACT_SCALAR(payload, '$.response.content.mimeType') LIKE 'text/html%' 
+              OR JSON_EXTRACT_SCALAR(payload, '$.response.content.mimeType') LIKE 'application/xhtml+xml%' 
+            THEN 1 ELSE 0 
+        END as is_html,
+        
+        -- Check if HTTPS
+        CASE WHEN STARTS_WITH(url, 'https://') THEN 1 ELSE 0 END as https_enabled,
+        
+        -- Extract response headers as array of structs
         (
             SELECT ARRAY_AGG(STRUCT(
                 LOWER(JSON_EXTRACT_SCALAR(h, '$.name')) as name,
                 JSON_EXTRACT_SCALAR(h, '$.value') as value
             ))
-            FROM UNNEST(JSON_QUERY_ARRAY(response_headers)) as h
-        ) as parsed_response_headers
+            FROM UNNEST(JSON_QUERY_ARRAY(payload, '$.response.headers')) as h
+        ) as parsed_response_headers,
+        
+        -- Extract request headers
+        JSON_QUERY_ARRAY(payload, '$.request.headers') as request_headers,
+        
+        -- Check if root page
+        1 as is_root_page
     FROM base_pages
 ),
 
@@ -138,10 +163,9 @@ headers_extracted AS (
                 ELSE NULL 
             END IGNORE NULLS
         ) as cookie_headers
-    FROM headers_parsed,
+    FROM response_extracted,
     UNNEST(parsed_response_headers) as h(name, value)
-    GROUP BY page, url, status_code, content_type, mime_type, 
-             first_html, is_root_page, load_time, page_size, crawl_time, client
+    GROUP BY url, client, crawl_date, is_html, https_enabled, content_type, is_root_page
 ),
 
 -- Parse cookies
@@ -158,7 +182,7 @@ cookies_parsed AS (
                 (
                     SELECT COUNT(*) / CAST(ARRAY_LENGTH(cookie_headers) AS FLOAT64)
                     FROM UNNEST(cookie_headers) as cookie
-                    WHERE REGEXP_CONTAINS(LOWER(cookie), r';\\s*secure\\b')
+                    WHERE REGEXP_CONTAINS(LOWER(cookie), ';\\\\s*secure\\\\b')
                 )
             ELSE 0.0
         END as cookie_secure_ratio,
@@ -168,7 +192,7 @@ cookies_parsed AS (
                 (
                     SELECT COUNT(*) / CAST(ARRAY_LENGTH(cookie_headers) AS FLOAT64)
                     FROM UNNEST(cookie_headers) as cookie
-                    WHERE REGEXP_CONTAINS(LOWER(cookie), r';\\s*httponly\\b')
+                    WHERE REGEXP_CONTAINS(LOWER(cookie), ';\\\\s*httponly\\\\b')
                 )
             ELSE 0.0
         END as cookie_httponly_ratio,
@@ -178,7 +202,7 @@ cookies_parsed AS (
                 (
                     SELECT COUNT(*) / CAST(ARRAY_LENGTH(cookie_headers) AS FLOAT64)
                     FROM UNNEST(cookie_headers) as cookie
-                    WHERE REGEXP_CONTAINS(LOWER(cookie), r';\\s*samesite\\s*=\\s*strict\\b')
+                    WHERE REGEXP_CONTAINS(LOWER(cookie), r';\s*samesite\s*=\s*strict\b')
                 )
             ELSE 0.0
         END as cookie_samesite_strict_ratio,
@@ -188,7 +212,7 @@ cookies_parsed AS (
                 (
                     SELECT COUNT(*) / CAST(ARRAY_LENGTH(cookie_headers) AS FLOAT64)
                     FROM UNNEST(cookie_headers) as cookie
-                    WHERE REGEXP_CONTAINS(LOWER(cookie), r';\\s*samesite\\s*=\\s*lax\\b')
+                    WHERE REGEXP_CONTAINS(LOWER(cookie), r';\s*samesite\s*=\s*lax\b')
                 )
             ELSE 0.0
         END as cookie_samesite_lax_ratio,
@@ -198,7 +222,7 @@ cookies_parsed AS (
                 (
                     SELECT COUNT(*) / CAST(ARRAY_LENGTH(cookie_headers) AS FLOAT64)
                     FROM UNNEST(cookie_headers) as cookie
-                    WHERE REGEXP_CONTAINS(LOWER(cookie), r';\\s*samesite\\s*=\\s*none\\b')
+                    WHERE REGEXP_CONTAINS(LOWER(cookie), r';\s*samesite\s*=\s*none\b')
                 )
             ELSE 0.0
         END as cookie_samesite_none_ratio,
@@ -212,13 +236,13 @@ origins_normalized AS (
     SELECT
         *,
         CONCAT(
-            REGEXP_EXTRACT(url, r'^(https?://[^/]+)'),
-            IF(REGEXP_CONTAINS(url, r'^https?://[^/]+:\\d+'), 
-               REGEXP_EXTRACT(url, r':(\\d+)(?:/|$)'),
+            REGEXP_EXTRACT(url, '^(https?://[^/]+)'),
+            IF(REGEXP_CONTAINS(url, '^https?://[^/]+:\d+'), 
+               REGEXP_EXTRACT(url, ':(\d+)(?:/|$)'),
                IF(STARTS_WITH(url, 'https://'), ':443', ':80'))
         ) as origin,
-        REGEXP_EXTRACT(url, r'^https?://([^/]+)') as hostname,
-        REGEXP_EXTRACT(url, r'^(https?)://') as scheme
+        REGEXP_EXTRACT(url, '^https?://([^/]+)') as hostname,
+        REGEXP_EXTRACT(url, '^(https?)://') as scheme
     FROM cookies_parsed
 ),
 
@@ -258,19 +282,19 @@ origins_with_registrable AS (
             WHEN ENDS_WITH(hostname, '.vercel.app') THEN 'vercel.app'
             WHEN ENDS_WITH(hostname, '.herokuapp.com') THEN 'herokuapp.com'
             WHEN ENDS_WITH(hostname, '.azurewebsites.net') THEN 'azurewebsites.net'
-            ELSE REGEXP_EXTRACT(hostname, r'([^.]+\\.[^.]+)$')
+            ELSE REGEXP_EXTRACT(hostname, '([^.]+\.[^.]+)$')
         END as registrable_domain
     FROM (
         SELECT
             *,
             CONCAT(
-                REGEXP_EXTRACT(url, r'^(https?://[^/]+)'),
-                IF(REGEXP_CONTAINS(url, r'^https?://[^/]+:\\d+'), 
-                   REGEXP_EXTRACT(url, r':(\\d+)(?:/|$)'),
+                REGEXP_EXTRACT(url, '^(https?://[^/]+)'),
+                IF(REGEXP_CONTAINS(url, '^https?://[^/]+:\d+'), 
+                   REGEXP_EXTRACT(url, ':(\d+)(?:/|$)'),
                    IF(STARTS_WITH(url, 'https://'), ':443', ':80'))
             ) as origin,
-            REGEXP_EXTRACT(url, r'^https?://([^/]+)') as hostname,
-            REGEXP_EXTRACT(url, r'^(https?)://') as scheme
+            REGEXP_EXTRACT(url, '^https?://([^/]+)') as hostname,
+            REGEXP_EXTRACT(url, '^(https?)://') as scheme
         ) as normalized
         FROM cookies_parsed
     ) normalized
@@ -280,8 +304,8 @@ origins_with_registrable AS (
 SELECT
     -- 17 Model Features (in schema_v1 order)
     status_code,
-    1 as is_html,
-    CASE WHEN scheme = 'https' THEN 1 ELSE 0 END as https_enabled,
+    is_html,
+    https_enabled,
     hsts_present,
     csp_present,
     x_content_type_options_present,
@@ -301,8 +325,8 @@ SELECT
     url,
     origin,
     registrable_domain,
-    crawl_time as crawl_timestamp,
-    page as record_id,
+    crawl_date as crawl_timestamp,
+    url as record_id,
     server_header_value,
     x_powered_by_value,
     content_type,
@@ -333,10 +357,14 @@ def render_query(config: HTTPArchiveConfig) -> str:
 
     Uses source_project_id for the data source, billing_project_id is used only for the BigQuery client.
     """
+    # Calculate date range from crawl_date
+    crawl_date = config.crawl_date
+    start_date = crawl_date
+    end_date = str(date.fromisoformat(crawl_date).replace(day=1).replace(month=12) + timedelta(days=31)).split()[0]  # Rough end of month
+    
     return HTTP_ARCHIVE_QUERY.format(
-        project_id=config.source_project_id,
-        dataset_id=config.dataset_id,
-        table_prefix=config.table_prefix,
+        start_date=crawl_date,
+        end_date=end_date,
         client=config.client,
     )
 
