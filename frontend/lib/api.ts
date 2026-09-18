@@ -10,14 +10,16 @@ export interface ScanMetadata {
 }
 
 export interface FindingEvidence {
-  [key: string]: any;
+  [key: string]: unknown;
 }
+
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info' | string;
 
 export interface Finding {
   id: string;
   rule_id: string;
   category: string;
-  severity: string;
+  severity: FindingSeverity;
   title: string;
   description: string;
   evidence: FindingEvidence;

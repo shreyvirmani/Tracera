@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getScan } from '@/lib/api';
-import { ScanResponse, Finding } from '@/lib/api';
+import { ScanResponse } from '@/lib/api';
 import FindingsList from '@/components/FindingsList';
 
 export default function ScanResultsPage() {
