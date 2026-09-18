@@ -1,25 +1,70 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import Home from '@/app/page';
 
-describe('Home page', () => {
-  it('renders Tracera title', () => {
-    render(<Home />);
-    expect(screen.getByText('Tracera')).toBeInTheDocument();
+global.fetch = jest.fn();
+
+describe('Dashboard page', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        scans: [],
+        total: 0,
+        limit: 5,
+        offset: 0,
+      }),
+    });
   });
 
-  it('renders subtitle', () => {
+  it('renders Dashboard title', () => {
     render(<Home />);
-    expect(screen.getByText('Website Risk Assessment Platform')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
   });
 
-  it('renders scan form', () => {
+  it('renders overview description', () => {
     render(<Home />);
-    expect(screen.getByLabelText('Website URL')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Start Scan/i })).toBeInTheDocument();
+    expect(screen.getByText(/Overview of your security scanning activity/i)).toBeInTheDocument();
   });
 
-  it('renders authorization notice', () => {
+  it('renders stats cards after loading', async () => {
     render(<Home />);
-    expect(screen.getByText(/authorization to test/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Total Scans')).toBeInTheDocument();
+      expect(screen.getByText('Total Findings')).toBeInTheDocument();
+      expect(screen.getByText('Critical Issues')).toBeInTheDocument();
+      expect(screen.getByText('Avg Risk Score')).toBeInTheDocument();
+    });
+  });
+
+  it('renders quick actions section after loading', async () => {
+    render(<Home />);
+    await waitFor(() => {
+      expect(screen.getByText('Quick Actions')).toBeInTheDocument();
+      expect(screen.getByText('Start New Scan')).toBeInTheDocument();
+      expect(screen.getByText('View Scan History')).toBeInTheDocument();
+    });
+  });
+
+  it('renders recent scans section after loading', async () => {
+    render(<Home />);
+    await waitFor(() => {
+      expect(screen.getByText('Recent Scans')).toBeInTheDocument();
+    });
+  });
+
+  it('shows empty state when no scans', async () => {
+    render(<Home />);
+    await waitFor(() => {
+      expect(screen.getByText('No scans yet')).toBeInTheDocument();
+    });
+  });
+
+  it('shows new scan button after loading', async () => {
+    render(<Home />);
+    await waitFor(() => {
+      const links = screen.getAllByRole('link', { name: /New Scan/i });
+      expect(links.length).toBeGreaterThan(0);
+    });
   });
 });
