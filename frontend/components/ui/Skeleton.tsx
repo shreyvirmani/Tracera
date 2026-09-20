@@ -1,8 +1,8 @@
 interface SkeletonProps {
   className?: string;
   variant?: 'text' | 'circular' | 'rectangular';
-  width?: string | number;
-  height?: string | number;
+  width?: string;
+  height?: string;
   animation?: 'pulse' | 'wave' | 'none';
 }
 
@@ -26,14 +26,12 @@ export function Skeleton({
     rectangular: 'rounded-lg',
   };
 
-  const style: React.CSSProperties = {};
-  if (width) style.width = typeof width === 'number' ? `${width}px` : width;
-  if (height) style.height = typeof height === 'number' ? `${height}px` : height;
+  const widthClass = width ? `w-[${width}]` : '';
+  const heightClass = height ? `h-[${height}]` : '';
 
   return (
     <div
-      className={`${baseStyles} ${variantStyles[variant]} ${animationClasses[animation]} ${className}`}
-      style={style}
+      className={`${baseStyles} ${variantStyles[variant]} ${animationClasses[animation]} ${widthClass} ${heightClass} ${className}`}
     />
   );
 }
