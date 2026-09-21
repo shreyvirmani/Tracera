@@ -1,172 +1,492 @@
-import pytest
-from app.rules.engine import run_rules, Finding, Severity, Category
-from app.features.extractor import FeatureVector
+from app.features.schema import (
+    CookieFeatures,
+    FeatureVector,
+    HTMLFeatures,
+    HTTPFeatures,
+    SecurityHeaderFeatures,
+    TechnologyFeatures,
+    TLSFeatures,
+)
+from app.rules import registry
+from app.rules.configuration import (
+    ServerVersionDisclosureRule,
+    WildcardCORSWithCredentialsRule,
+    XPoweredByDisclosureRule,
+)
+from app.rules.cookies import (
+    InsecureCookieRule,
+    MissingHttpOnlyRule,
+    WeakSameSiteRule,
+)
+from app.rules.models import RuleResult
+from app.rules.performance import (
+    ExcessiveResponseSizeRule,
+    MixedContentRule,
+)
+from app.rules.security import (
+    HTTPSOnlyRule,
+    MissingCSPRule,
+    MissingHSTSRule,
+    MissingPermissionsPolicyRule,
+    MissingReferrerPolicyRule,
+    MissingXContentTypeOptionsRule,
+    MissingXFrameOptionsRule,
+)
 
 
-def make_features(**overrides) -> FeatureVector:
+def make_feature_vector(**overrides) -> FeatureVector:
     defaults = {
-        "feature_schema_version": "v1",
-        "status_code": 200,
-        "response_size_bytes": 1000,
-        "response_time_ms": 100.0,
-        "content_type": "text/html",
-        "redirect_count": 0,
-        "https_enabled": True,
-        "hsts_present": True,
-        "csp_present": True,
-        "x_content_type_options_present": True,
-        "x_frame_options_present": True,
-        "referrer_policy_present": True,
-        "permissions_policy_present": True,
-        "cookie_count": 1,
-        "cookie_secure_ratio": 1.0,
-        "cookie_httponly_ratio": 1.0,
-        "cookie_samesite_strict_ratio": 1.0,
-        "cookie_samesite_lax_ratio": 0.0,
-        "cookie_samesite_none_ratio": 0.0,
-        "third_party_cookie_indicators": 0,
-        "cert_expiry_days": 365,
-        "cert_is_expired": False,
-        "tls_version": "TLS 1.3",
-        "cert_subject_cn": "example.com",
-        "cert_issuer_cn": "Let's Encrypt",
-        "html_size_bytes": 1000,
-        "script_count": 1,
-        "stylesheet_count": 1,
-        "image_count": 1,
-        "iframe_count": 0,
-        "form_count": 0,
-        "external_domain_count": 0,
-        "mixed_content_count": 0,
-        "server_header_present": False,
-        "server_header_value": None,
-        "x_powered_by_present": False,
-        "x_powered_by_value": None,
-        "framework_indicators": [],
+        "http": HTTPFeatures(
+            status_code=200,
+            response_size_bytes=1000,
+            response_time_ms=100.0,
+            content_type="text/html",
+            redirect_count=0,
+            https_enabled=True,
+            server_header=None,
+            x_powered_by=None,
+        ),
+        "security_headers": SecurityHeaderFeatures(),
+        "cookies": CookieFeatures(
+            total_cookies=0,
+            secure_cookies=0,
+            httponly_cookies=0,
+            samesite_cookies=0,
+            session_cookies=0,
+            persistent_cookies=0,
+            third_party_indicators=0,
+        ),
+        "tls": TLSFeatures(),
+        "html": HTMLFeatures(
+            html_size_bytes=1000,
+            script_count=0,
+            stylesheet_count=0,
+            image_count=0,
+            iframe_count=0,
+            form_count=0,
+            external_domain_count=0,
+            mixed_content_count=0,
+        ),
+        "technology": TechnologyFeatures(),
     }
     defaults.update(overrides)
     return FeatureVector(**defaults)
 
 
-class TestRules:
-    def test_no_https_triggers(self):
-        features = make_features(https_enabled=False)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-HTTPS-001" in rule_ids
-
-    def test_missing_hsts_triggers(self):
-        features = make_features(https_enabled=True, hsts_present=False)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-HSTS-001" in rule_ids
-
-    def test_missing_csp_triggers(self):
-        features = make_features(csp_present=False)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-CSP-001" in rule_ids
-
-    def test_missing_x_content_type_options_triggers(self):
-        features = make_features(x_content_type_options_present=False)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-XCTO-001" in rule_ids
-
-    def test_missing_x_frame_options_triggers(self):
-        features = make_features(x_frame_options_present=False)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-XFO-001" in rule_ids
-
-    def test_missing_referrer_policy_triggers(self):
-        features = make_features(referrer_policy_present=False)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-RP-001" in rule_ids
-
-    def test_missing_permissions_policy_triggers(self):
-        features = make_features(permissions_policy_present=False)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-PP-001" in rule_ids
-
-    def test_insecure_cookie_triggers(self):
-        features = make_features(https_enabled=True, cookie_count=2, cookie_secure_ratio=0.5)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-COOKIE-001" in rule_ids
-
-    def test_missing_httponly_triggers(self):
-        features = make_features(cookie_count=2, cookie_httponly_ratio=0.5)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-COOKIE-002" in rule_ids
-
-    def test_weak_samesite_none_triggers(self):
-        features = make_features(https_enabled=True, cookie_count=1, cookie_samesite_none_ratio=1.0)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-COOKIE-003" in rule_ids
-
-    def test_missing_samesite_triggers(self):
-        features = make_features(cookie_count=1, cookie_samesite_strict_ratio=0.0, cookie_samesite_lax_ratio=0.0, cookie_samesite_none_ratio=0.0)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-COOKIE-003" in rule_ids
-
-    def test_server_version_disclosure_triggers(self):
-        features = make_features(server_header_present=True, server_header_value="nginx/1.24.0")
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "CFG-SERVER-001" in rule_ids
-
-    def test_x_powered_by_disclosure_triggers(self):
-        features = make_features(x_powered_by_present=True, x_powered_by_value="Express")
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "CFG-XPB-001" in rule_ids
-
-    def test_mixed_content_triggers(self):
-        features = make_features(https_enabled=True, mixed_content_count=2)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-MIXED-001" in rule_ids
-
-    def test_excessive_response_size_triggers(self):
-        features = make_features(html_size_bytes=600_000)
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "PERF-SIZE-001" in rule_ids
-
-    def test_cert_expired_triggers_critical(self):
-        features = make_features(cert_expiry_days=-1, cert_is_expired=True)
-        findings = run_rules(features)
-        cert_findings = [f for f in findings if f.rule_id == "SEC-TLS-001"]
-        assert len(cert_findings) == 1
-        assert cert_findings[0].severity == Severity.CRITICAL
-
-    def test_cert_expiring_soon_triggers_high(self):
-        features = make_features(cert_expiry_days=15, cert_is_expired=False)
-        findings = run_rules(features)
-        cert_findings = [f for f in findings if f.rule_id == "SEC-TLS-001"]
-        assert len(cert_findings) == 1
-        assert cert_findings[0].severity == Severity.HIGH
-
-    def test_multiple_security_headers_missing(self):
-        features = make_features(
-            https_enabled=True,
-            hsts_present=False,
-            csp_present=False,
-            x_frame_options_present=False,
-            x_content_type_options_present=False,
+class TestHTTPSOnlyRule:
+    def test_triggers_on_http(self):
+        rule = HTTPSOnlyRule()
+        features = make_feature_vector(
+            http=HTTPFeatures(
+                status_code=200,
+                response_size_bytes=1000,
+                response_time_ms=100.0,
+                content_type="text/html",
+                redirect_count=0,
+                https_enabled=False,
+            ),
         )
-        findings = run_rules(features)
-        rule_ids = [f.rule_id for f in findings]
-        assert "SEC-HEADERS-001" in rule_ids
+        result = rule.check(features)
+        assert result.triggered is True
+        assert len(result.findings) == 1
+        assert result.findings[0].rule_id == "SEC-HTTPS-001"
+        assert result.findings[0].severity.value == "high"
 
-    def test_all_secure_no_findings(self):
-        features = make_features()
-        findings = run_rules(features)
-        security_findings = [f for f in findings if f.category == Category.SECURITY]
-        assert len(security_findings) == 0
+    def test_passes_on_https(self):
+        rule = HTTPSOnlyRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestMissingHSTSRule:
+    def test_triggers_when_missing(self):
+        rule = MissingHSTSRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "SEC-HSTS-001"
+        assert result.findings[0].severity.value == "medium"
+
+    def test_passes_when_present(self):
+        rule = MissingHSTSRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(hsts="max-age=31536000"),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestMissingCSPRule:
+    def test_triggers_when_missing(self):
+        rule = MissingCSPRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "SEC-CSP-001"
+        assert result.findings[0].severity.value == "medium"
+
+    def test_passes_when_present(self):
+        rule = MissingCSPRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(csp="default-src 'self'"),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestMissingXContentTypeOptionsRule:
+    def test_triggers_when_missing(self):
+        rule = MissingXContentTypeOptionsRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].severity.value == "low"
+
+    def test_passes_when_present(self):
+        rule = MissingXContentTypeOptionsRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(x_content_type_options="nosniff"),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestMissingXFrameOptionsRule:
+    def test_triggers_when_missing(self):
+        rule = MissingXFrameOptionsRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].severity.value == "medium"
+
+    def test_passes_when_present(self):
+        rule = MissingXFrameOptionsRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(x_frame_options="DENY"),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestMissingReferrerPolicyRule:
+    def test_triggers_when_missing(self):
+        rule = MissingReferrerPolicyRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].severity.value == "low"
+
+    def test_passes_when_present(self):
+        rule = MissingReferrerPolicyRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(
+                referrer_policy="strict-origin-when-cross-origin"
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestMissingPermissionsPolicyRule:
+    def test_triggers_when_missing(self):
+        rule = MissingPermissionsPolicyRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].severity.value == "low"
+
+    def test_passes_when_present(self):
+        rule = MissingPermissionsPolicyRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(permissions_policy="geolocation=()"),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestInsecureCookieRule:
+    def test_triggers_when_cookies_missing_secure(self):
+        rule = InsecureCookieRule()
+        features = make_feature_vector(
+            cookies=CookieFeatures(
+                total_cookies=2,
+                secure_cookies=1,
+                httponly_cookies=2,
+                samesite_cookies=2,
+                session_cookies=2,
+                persistent_cookies=0,
+                third_party_indicators=0,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "SEC-COOKIE-001"
+        assert result.findings[0].severity.value == "high"
+
+    def test_passes_when_all_secure(self):
+        rule = InsecureCookieRule()
+        features = make_feature_vector(
+            cookies=CookieFeatures(
+                total_cookies=2,
+                secure_cookies=2,
+                httponly_cookies=2,
+                samesite_cookies=2,
+                session_cookies=2,
+                persistent_cookies=0,
+                third_party_indicators=0,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+    def test_passes_when_no_cookies(self):
+        rule = InsecureCookieRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestMissingHttpOnlyRule:
+    def test_triggers_when_cookies_missing_httponly(self):
+        rule = MissingHttpOnlyRule()
+        features = make_feature_vector(
+            cookies=CookieFeatures(
+                total_cookies=2,
+                secure_cookies=2,
+                httponly_cookies=1,
+                samesite_cookies=2,
+                session_cookies=2,
+                persistent_cookies=0,
+                third_party_indicators=0,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "SEC-COOKIE-002"
+        assert result.findings[0].severity.value == "medium"
+
+    def test_passes_when_all_httponly(self):
+        rule = MissingHttpOnlyRule()
+        features = make_feature_vector(
+            cookies=CookieFeatures(
+                total_cookies=2,
+                secure_cookies=2,
+                httponly_cookies=2,
+                samesite_cookies=2,
+                session_cookies=2,
+                persistent_cookies=0,
+                third_party_indicators=0,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestWeakSameSiteRule:
+    def test_triggers_when_cookies_missing_samesite(self):
+        rule = WeakSameSiteRule()
+        features = make_feature_vector(
+            cookies=CookieFeatures(
+                total_cookies=2,
+                secure_cookies=2,
+                httponly_cookies=2,
+                samesite_cookies=1,
+                session_cookies=2,
+                persistent_cookies=0,
+                third_party_indicators=0,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "SEC-COOKIE-003"
+        assert result.findings[0].severity.value == "medium"
+
+    def test_passes_when_all_samesite(self):
+        rule = WeakSameSiteRule()
+        features = make_feature_vector(
+            cookies=CookieFeatures(
+                total_cookies=2,
+                secure_cookies=2,
+                httponly_cookies=2,
+                samesite_cookies=2,
+                session_cookies=2,
+                persistent_cookies=0,
+                third_party_indicators=0,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestServerVersionDisclosureRule:
+    def test_triggers_when_version_in_server_header(self):
+        rule = ServerVersionDisclosureRule()
+        features = make_feature_vector(
+            http=HTTPFeatures(
+                status_code=200,
+                response_size_bytes=1000,
+                response_time_ms=100.0,
+                content_type="text/html",
+                redirect_count=0,
+                https_enabled=True,
+                server_header="nginx/1.20.1",
+                x_powered_by=None,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "CFG-SERVER-001"
+        assert result.findings[0].severity.value == "low"
+
+    def test_passes_when_generic_server(self):
+        rule = ServerVersionDisclosureRule()
+        features = make_feature_vector(
+            http=HTTPFeatures(
+                status_code=200,
+                response_size_bytes=1000,
+                response_time_ms=100.0,
+                content_type="text/html",
+                redirect_count=0,
+                https_enabled=True,
+                server_header="nginx",
+                x_powered_by=None,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+    def test_passes_when_no_server_header(self):
+        rule = ServerVersionDisclosureRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestXPoweredByDisclosureRule:
+    def test_triggers_when_present(self):
+        rule = XPoweredByDisclosureRule()
+        features = make_feature_vector(
+            http=HTTPFeatures(
+                status_code=200,
+                response_size_bytes=1000,
+                response_time_ms=100.0,
+                content_type="text/html",
+                redirect_count=0,
+                https_enabled=True,
+                server_header=None,
+                x_powered_by="Express",
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "CFG-XPB-001"
+        assert result.findings[0].severity.value == "low"
+
+    def test_passes_when_absent(self):
+        rule = XPoweredByDisclosureRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestWildcardCORSWithCredentialsRule:
+    def test_triggers_when_wildcard_with_credentials(self):
+        rule = WildcardCORSWithCredentialsRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(
+                access_control_allow_origin="*",
+                access_control_allow_credentials="true",
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "SEC-CORS-001"
+        assert result.findings[0].severity.value == "high"
+
+    def test_passes_when_no_wildcard(self):
+        rule = WildcardCORSWithCredentialsRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(
+                access_control_allow_origin="https://example.com",
+                access_control_allow_credentials="true",
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+    def test_passes_when_no_credentials(self):
+        rule = WildcardCORSWithCredentialsRule()
+        features = make_feature_vector(
+            security_headers=SecurityHeaderFeatures(
+                access_control_allow_origin="*",
+                access_control_allow_credentials="false",
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestMixedContentRule:
+    def test_triggers_when_mixed_content(self):
+        rule = MixedContentRule()
+        features = make_feature_vector(
+            html=HTMLFeatures(
+                html_size_bytes=1000,
+                script_count=1,
+                stylesheet_count=0,
+                image_count=0,
+                iframe_count=0,
+                form_count=0,
+                external_domain_count=0,
+                mixed_content_count=2,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "SEC-MIXED-001"
+        assert result.findings[0].severity.value == "high"
+
+    def test_passes_when_no_mixed_content(self):
+        rule = MixedContentRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestExcessiveResponseSizeRule:
+    def test_triggers_when_over_threshold(self):
+        rule = ExcessiveResponseSizeRule()
+        features = make_feature_vector(
+            http=HTTPFeatures(
+                status_code=200,
+                response_size_bytes=15_000_000,
+                response_time_ms=100.0,
+                content_type="text/html",
+                redirect_count=0,
+                https_enabled=True,
+            ),
+        )
+        result = rule.check(features)
+        assert result.triggered is True
+        assert result.findings[0].rule_id == "PERF-SIZE-001"
+        assert result.findings[0].severity.value == "low"
+
+    def test_passes_when_under_threshold(self):
+        rule = ExcessiveResponseSizeRule()
+        features = make_feature_vector()
+        result = rule.check(features)
+        assert result.triggered is False
+
+
+class TestRuleRegistry:
+    def test_registry_has_15_rules(self):
+        assert len(registry.get_all()) == 15
+
+    def test_run_all_returns_results_for_all(self):
+        features = make_feature_vector()
+        results = registry.run_all(features)
+        assert len(results) == 15
+        for result in results:
+            assert isinstance(result, RuleResult)
+            assert result.rule_id

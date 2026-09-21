@@ -1,5 +1,4 @@
 import { getScan } from '@/lib/api';
-import { ScanDetail } from '@/lib/types';
 import { ScanResultsClient } from './ScanResultsClient';
 import { notFound } from 'next/navigation';
 

@@ -1,149 +1,121 @@
-import re
 import ipaddress
+import re
 from urllib.parse import urlparse
-from typing import Tuple, Optional
-from pydantic import BaseModel, field_validator
 
-from app.core.config import settings, is_private_ip
-
-
-class URLValidationError(Exception):
-    def __init__(self, message: str, code: str):
-        self.message = message
-        self.code = code
-        super().__init__(message)
+from pydantic import BaseModel
 
 
 class ValidatedURL(BaseModel):
     original_url: str
     canonical_url: str
     scheme: str
-    hostname: str
-    port: Optional[int] = None
+    host: str
+    port: int | None = None
     path: str
-    query: Optional[str] = None
-    resolved_ips: list[str] = []
-
-    @field_validator("scheme")
-    @classmethod
-    def validate_scheme(cls, v: str) -> str:
-        if v not in settings.ssrf_allowed_schemes:
-            raise ValueError(f"Scheme '{v}' not allowed")
-        return v
+    query: str | None = None
 
 
-def canonicalize_url(url: str) -> str:
-    parsed = urlparse(url.strip())
-    if not parsed.scheme:
-        raise URLValidationError("Missing URL scheme", "MISSING_SCHEME")
-    if not parsed.hostname:
-        raise URLValidationError("Missing hostname", "MISSING_HOSTNAME")
+SCHEME_PATTERN = re.compile(r"^https?$", re.IGNORECASE)
+HOSTNAME_PATTERN = re.compile(
+    r"^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
+)
+IPV4_PATTERN = re.compile(
+    r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+)
+IPV6_PATTERN = re.compile(
+    r"^("
+    r"([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|"
+    r"([0-9a-fA-F]{1,4}:){1,7}:|"
+    r"([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|"
+    r"([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|"
+    r"([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|"
+    r"([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|"
+    r"([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|"
+    r"[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|"
+    r":((:[0-9a-fA-F]{1,4}){1,7}|:)|"
+    r"fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|"
+    r"::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|"
+    r"([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])"
+    r")$"
+)
 
+RESERVED_HOSTNAMES = {"localhost"}
+
+
+class URLValidationError(Exception):
+    def __init__(self, message: str, code: str):
+        super().__init__(message)
+        self.code = code
+
+
+def validate_scheme(url: str) -> str:
+    parsed = urlparse(url)
     scheme = parsed.scheme.lower()
-    hostname = parsed.hostname.lower()
-    port = parsed.port
-    path = parsed.path or "/"
-    query = parsed.query
-
-    if port and ((scheme == "http" and port == 80) or (scheme == "https" and port == 443)):
-        port = None
-
-    netloc = hostname
-    if port:
-        netloc = f"{hostname}:{port}"
-
-    canonical = f"{scheme}://{netloc}{path}"
-    if query:
-        canonical += f"?{query}"
-
-    return canonical
+    if not SCHEME_PATTERN.match(scheme):
+        raise URLValidationError(
+            f"Invalid scheme: {scheme}. Only http and https are allowed.",
+            "INVALID_SCHEME",
+        )
+    return scheme
 
 
-def validate_hostname(hostname: str) -> None:
-    if not hostname:
-        raise URLValidationError("Empty hostname", "EMPTY_HOSTNAME")
+def validate_hostname(host: str) -> str:
+    host = host.lower().strip()
+    if not host:
+        raise URLValidationError("Hostname is empty", "EMPTY_HOSTNAME")
 
-    if len(hostname) > 253:
-        raise URLValidationError("Hostname too long", "HOSTNAME_TOO_LONG")
-
-    if hostname.startswith(".") or hostname.endswith("."):
-        raise URLValidationError("Invalid hostname format", "INVALID_HOSTNAME_FORMAT")
-
-    labels = hostname.split(".")
-    for label in labels:
-        if not label or len(label) > 63:
-            raise URLValidationError("Invalid hostname label", "INVALID_LABEL")
-        if not re.match(r"^[a-z0-9-]+$", label, re.IGNORECASE):
-            raise URLValidationError("Invalid hostname characters", "INVALID_CHARACTERS")
-        if label.startswith("-") or label.endswith("-"):
-            raise URLValidationError("Invalid label hyphens", "INVALID_HYPHENS")
-
-
-async def resolve_and_validate(hostname: str) -> list[str]:
-    import socket
-    import asyncio
+    if host in RESERVED_HOSTNAMES:
+        return host
 
     try:
-        loop = asyncio.get_event_loop()
-        infos = await loop.getaddrinfo(hostname, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM)
-    except socket.gaierror as e:
-        raise URLValidationError(f"DNS resolution failed: {e}", "DNS_FAILED")
+        ipaddress.ip_address(host)
+        return host
+    except ValueError:
+        pass
 
-    ips = []
-    for info in infos:
-        ip = info[4][0]
-        if ip not in ips:
-            ips.append(ip)
+    if not HOSTNAME_PATTERN.match(host):
+        raise URLValidationError(f"Invalid hostname format: {host}", "INVALID_HOSTNAME")
 
-    if not ips:
-        raise URLValidationError("No IP addresses resolved", "NO_IPS")
-
-    for ip in ips:
-        if settings.ssrf_block_loopback and ipaddress.ip_address(ip).is_loopback:
-            raise URLValidationError(f"Loopback address blocked: {ip}", "BLOCKED_LOOPBACK")
-        if settings.ssrf_block_private and is_private_ip(ip):
-            raise URLValidationError(f"Private address blocked: {ip}", "BLOCKED_PRIVATE")
-        if settings.ssrf_block_link_local and ipaddress.ip_address(ip).is_link_local:
-            raise URLValidationError(f"Link-local address blocked: {ip}", "BLOCKED_LINK_LOCAL")
-        if settings.ssrf_block_multicast and ipaddress.ip_address(ip).is_multicast:
-            raise URLValidationError(f"Multicast address blocked: {ip}", "BLOCKED_MULTICAST")
-
-    return ips
+    return host
 
 
-async def validate_url(url: str) -> ValidatedURL:
-    canonical = canonicalize_url(url)
-    parsed = urlparse(canonical)
+def validate_port(port: int | None, scheme: str) -> int:
+    if port is not None:
+        if not (1 <= port <= 65535):
+            raise URLValidationError(
+                f"Invalid port: {port}. Must be between 1 and 65535.", "INVALID_PORT"
+            )
+        return port
 
-    validate_hostname(parsed.hostname or "")
+    return 443 if scheme == "https" else 80
 
-    resolved_ips = await resolve_and_validate(parsed.hostname or "")
+
+def canonicalize_url(url: str) -> ValidatedURL:
+    parsed = urlparse(url.strip())
+
+    scheme = validate_scheme(url)
+    host = validate_hostname(parsed.hostname or "")
+    port = validate_port(parsed.port, scheme)
+
+    path = parsed.path or "/"
+    if not path.startswith("/"):
+        path = "/" + path
+
+    query = parsed.query if parsed.query else None
+
+    canonical = f"{scheme}://{host}"
+    if (scheme == "http" and port != 80) or (scheme == "https" and port != 443):
+        canonical += f":{port}"
+    canonical += path
+    if query:
+        canonical += f"?{query}"
 
     return ValidatedURL(
         original_url=url,
         canonical_url=canonical,
-        scheme=parsed.scheme,
-        hostname=parsed.hostname or "",
-        port=parsed.port,
-        path=parsed.path or "/",
-        query=parsed.query or None,
-        resolved_ips=resolved_ips,
-    )
-
-
-def validate_redirect_url(redirect_url: str, original_validated: ValidatedURL) -> ValidatedURL:
-    canonical = canonicalize_url(redirect_url)
-    parsed = urlparse(canonical)
-
-    validate_hostname(parsed.hostname or "")
-
-    return ValidatedURL(
-        original_url=redirect_url,
-        canonical_url=canonical,
-        scheme=parsed.scheme,
-        hostname=parsed.hostname or "",
-        port=parsed.port,
-        path=parsed.path or "/",
-        query=parsed.query or None,
-        resolved_ips=[],
+        scheme=scheme,
+        host=host,
+        port=port,
+        path=path,
+        query=query,
     )

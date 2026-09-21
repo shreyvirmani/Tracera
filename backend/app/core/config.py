@@ -1,7 +1,9 @@
-from pydantic_settings import BaseSettings
-from pydantic import Field
+from functools import lru_cache
 from typing import List
+
 import ipaddress
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -9,25 +11,39 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
 
-    api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    backend_host: str = Field(default="0.0.0.0", description="Backend host")
+    backend_port: int = Field(default=8000, description="Backend port")
 
-    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/tracera")
+    database_url: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/tracera",
+        description="PostgreSQL connection URL",
+    )
+    db_echo: bool = Field(default=False, description="Echo SQL queries")
 
-    collector_timeout_seconds: float = 10.0
-    collector_max_response_size: int = 2_000_000
-    collector_max_redirects: int = 5
-    collector_user_agent: str = "Tracera/1.0 (+https://tracera.dev)"
+    collector_timeout_seconds: float = Field(
+        default=10.0, description="Collector timeout in seconds"
+    )
+    collector_max_response_size: int = Field(
+        default=2_000_000, description="Max response size in bytes"
+    )
+    collector_max_redirects: int = Field(default=5, description="Max redirects")
+    collector_user_agent: str = Field(
+        default="Tracera/1.0 (+https://tracera.dev)", description="Collector user agent"
+    )
 
-    ssrf_block_private: bool = True
-    ssrf_block_loopback: bool = True
-    ssrf_block_link_local: bool = True
-    ssrf_block_multicast: bool = True
-    ssrf_allowed_schemes: List[str] = ["http", "https"]
+    ssrf_block_private: bool = Field(default=True, description="Block private IPs")
+    ssrf_block_loopback: bool = Field(default=True, description="Block loopback IPs")
+    ssrf_block_link_local: bool = Field(default=True, description="Block link-local IPs")
+    ssrf_block_multicast: bool = Field(default=True, description="Block multicast IPs")
+    ssrf_allowed_schemes: List[str] = Field(
+        default=["http", "https"], description="Allowed URL schemes"
+    )
 
-    rate_limit_requests_per_minute: int = 30
+    rate_limit_requests_per_minute: int = Field(
+        default=30, description="Rate limit requests per minute"
+    )
 
-    feature_schema_version: str = "v1"
+    feature_schema_version: str = Field(default="features-v1", description="Feature schema version")
 
     class Config:
         env_file = ".env"
@@ -56,4 +72,9 @@ def is_private_ip(ip: str) -> bool:
         return True
 
 
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

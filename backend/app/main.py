@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.db.session import init_db, close_db
-from app.api.v1.scans import router as scans_router
+from app.api.v1 import datasets, scans
 
 
 @asynccontextmanager
@@ -29,7 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(scans_router, prefix="/api/v1")
+app.include_router(scans.router, prefix="/api/v1")
+app.include_router(datasets.router, prefix="/api/v1")
 
 
 @app.get("/health")

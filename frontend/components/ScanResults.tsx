@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getScan } from '@/lib/api';
-import { ScanDetail, Finding } from '@/lib/types';
-import { FindingsList } from '@/components/FindingsList';
+import { getScan, ScanResponse } from '@/lib/api';
+import FindingsList from '@/components/FindingsList';
 
 interface ScanResultsProps {
   scanId: string;
@@ -11,7 +10,7 @@ interface ScanResultsProps {
 }
 
 export function ScanResults({ scanId, onNewScan }: ScanResultsProps) {
-  const [scan, setScan] = useState<ScanDetail | null>(null);
+  const [scan, setScan] = useState<ScanResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,13 +50,13 @@ export function ScanResults({ scanId, onNewScan }: ScanResultsProps) {
   if (!scan) return null;
 
   const tierColors: Record<string, string> = {
-    LOW: 'bg-green-100 text-green-800',
-    MEDIUM: 'bg-yellow-100 text-yellow-800',
-    HIGH: 'bg-orange-100 text-orange-800',
-    CRITICAL: 'bg-red-100 text-red-800',
+    low: 'bg-green-100 text-green-800',
+    medium: 'bg-yellow-100 text-yellow-800',
+    high: 'bg-orange-100 text-orange-800',
+    critical: 'bg-red-100 text-red-800',
   };
 
-  const tierColor = tierColors[scan.risk_tier || 'LOW'] || tierColors.LOW;
+  const tierColor = tierColors[scan.risk_tier || 'low'] || tierColors.low;
 
   return (
     <div className="space-y-6">

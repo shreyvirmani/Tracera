@@ -1,4 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.pool import NullPool
+
 from app.core.config import settings
 
 # Lazy initialization to avoid import-time asyncpg requirement
@@ -11,8 +13,8 @@ def get_engine():
     if _engine is None:
         _engine = create_async_engine(
             settings.database_url,
-            echo=settings.environment == "development",
-            pool_pre_ping=True,
+            echo=settings.db_echo,
+            poolclass=NullPool,
         )
     return _engine
 

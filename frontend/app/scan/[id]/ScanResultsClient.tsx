@@ -1,25 +1,24 @@
 'use client';
 
-import { useState } from 'react';
-import { ScanDetail } from '@/lib/types';
-import { FindingsList } from '@/components/FindingsList';
+import { ScanResponse } from '@/lib/api';
+import FindingsList from '@/components/FindingsList';
 import Link from 'next/link';
 
 interface ScanResultsClientProps {
-  initialScan: ScanDetail;
+  initialScan: ScanResponse;
 }
 
 export function ScanResultsClient({ initialScan }: ScanResultsClientProps) {
-  const [scan, setScan] = useState<ScanDetail>(initialScan);
+  const scan = initialScan;
 
   const tierColors: Record<string, string> = {
-    LOW: 'bg-green-100 text-green-800',
-    MEDIUM: 'bg-yellow-100 text-yellow-800',
-    HIGH: 'bg-orange-100 text-orange-800',
-    CRITICAL: 'bg-red-100 text-red-800',
+    low: 'bg-green-100 text-green-800',
+    medium: 'bg-yellow-100 text-yellow-800',
+    high: 'bg-orange-100 text-orange-800',
+    critical: 'bg-red-100 text-red-800',
   };
 
-  const tierColor = tierColors[scan.risk_tier || 'LOW'] || tierColors.LOW;
+  const tierColor = tierColors[scan.risk_tier || 'low'] || tierColors.low;
 
   return (
     <main className="min-h-screen bg-gray-50 py-8 px-4">
@@ -84,7 +83,7 @@ export function ScanResultsClient({ initialScan }: ScanResultsClientProps) {
             </div>
             <div>
               <dt className="text-gray-500">Error</dt>
-              <dd className="text-red-600">{scan.error_message || 'None'}</dd>
+              <dd className="text-red-600">{scan.error || 'None'}</dd>
             </div>
           </dl>
         </div>
