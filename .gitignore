@@ -60,3 +60,48 @@ ml/data/http_archive/reports/
 ml/data/pilot/raw/
 ml/data/pilot/processed/
 ml/data/pilot/reports/
+
+# Node.js / Next.js
+node_modules/
+.next/
+frontend/node_modules/
+frontend/.next/
+frontend/.turbo/
+*.tsbuildinfo
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+*.log
+*.swp
+*.swo
+*~
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.log
+
+# Next.js
+.next/
+out/
+build/
+
+# Turbo
+.turbo/
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+*.tsbuildinfo
+*.log
+*.swp
+*.swo
+*~
+EOF
