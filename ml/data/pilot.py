@@ -84,11 +84,11 @@ def find_wat_segment(crawl_id: str) -> Optional[str]:
             for line in r.text.strip().split('\n'):
                 if line:
                     try:
-                        data = json.loads(line.split(' ', 1)[1])
+                        data = json.loads(line.split(' ', 2)[2])
                         warc_filename = data.get('filename', '')
                         if warc_filename and 'warc/' in warc_filename:
                             # Convert WARC path to WAT path
-                            wat_filename = warc_filename.replace('/warc/', '/wat/').replace('.warc.gz', '.wat.gz')
+                            wat_filename = warc_filename.replace('/warc/', '/wat/').replace('.warc.gz', '.warc.wat.gz')
                             return f"{COMMON_CRAWL_BASE_URL}/{wat_filename}"
                     except (json.JSONDecodeError, IndexError):
                         continue
@@ -100,8 +100,11 @@ def find_wat_segment(crawl_id: str) -> Optional[str]:
 
 def stream_wat_records(wat_url: str, max_records: int) -> Iterator[Dict[str, Any]]:
     """
-    Stream WAT records from a gzipped JSONL file.
+    Stream WAT records from a gzipped WARC file.
     Yields parsed WAT records one at a time (memory efficient).
+    
+    Common Crawl WAT files are WARC files where each record contains
+    HTTP response metadata as a JSON payload in the Envelope format.
     """
     import requests
     
@@ -109,16 +112,59 @@ def stream_wat_records(wat_url: str, max_records: int) -> Iterator[Dict[str, Any
         response = requests.get(wat_url, stream=True, timeout=60)
         response.raise_for_status()
         
-        with gzip.open(response.raw, 'rt', encoding='utf-8') as f:
-            for i, line in enumerate(f):
-                if i >= max_records:
-                    break
-                line = line.strip()
-                if line:
-                    try:
-                        yield json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+        with gzip.open(response.raw, 'rb') as f:
+            record_count = 0
+            buffer = b''
+            in_headers = True
+            content_length = 0
+            
+            for chunk in iter(lambda: f.read(8192), b''):
+                buffer += chunk
+                
+                while True:
+                    if in_headers:
+                        # Look for end of headers (double CRLF)
+                        header_end = buffer.find(b'\r\n\r\n')
+                        if header_end == -1:
+                            break
+                        
+                        # Parse headers
+                        header_block = buffer[:header_end].decode('utf-8', errors='replace')
+                        buffer = buffer[header_end + 4:]  # Skip \r\n\r\n
+                        
+                        # Parse WARC headers
+                        content_length = 0
+                        warc_type = None
+                        for line in header_block.split('\r\n'):
+                            if line.startswith('Content-Length:'):
+                                content_length = int(line.split(':', 1)[1].strip())
+                            elif line.startswith('WARC-Type:'):
+                                warc_type = line.split(':', 1)[1].strip()
+                        
+                        in_headers = False
+                    
+                    else:
+                        # Reading payload
+                        if len(buffer) >= content_length:
+                            payload = buffer[:content_length]
+                            buffer = buffer[content_length:]
+                            
+                            # Only process 'metadata' type records (the actual WAT records)
+                            if warc_type == 'metadata' and content_length > 0:
+                                try:
+                                    payload_str = payload.decode('utf-8', errors='replace')
+                                    record = json.loads(payload_str)
+                                    yield record
+                                    record_count += 1
+                                    if record_count >= max_records:
+                                        return
+                                except (json.JSONDecodeError, UnicodeDecodeError):
+                                    pass
+                            
+                            in_headers = True
+                        else:
+                            break
+                        
     except Exception as e:
         print(f"Error streaming WAT: {e}")
         raise
