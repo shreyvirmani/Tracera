@@ -181,9 +181,20 @@ def analyze_scan_features(scan_feature_dict: Dict[str, Any], *, enabled: Optiona
     # Inference
     try:
         import numpy as np
+        import warnings
 
         X = features.to_array().reshape(1, -1)
-        decision = float(model.decision_function(X)[0])
+        # The artifact was fitted on a named DataFrame; inference uses the
+        # validated MLFeaturesV1 feature order (identical to
+        # MLFeaturesV1.feature_names()), so sklearn's missing-name warning is
+        # a false positive and is suppressed to keep API logs clean.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*X does not have valid feature names.*",
+                module="sklearn",
+            )
+            decision = float(model.decision_function(X)[0])
         anomaly_score = float(-decision)  # higher = more atypical (see contract)
         # Saved threshold lives on the anomaly-score scale (P5 of train
         # decision_function negated at save time, see ml/training/model_io.py).
