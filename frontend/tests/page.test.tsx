@@ -1,70 +1,77 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { useRouter } from 'next/navigation';
 import Home from '@/app/page';
 
-global.fetch = jest.fn();
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(),
+}));
 
-describe('Dashboard page', () => {
+const mockRouter = useRouter as jest.Mock;
+
+describe('Landing page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        scans: [],
-        total: 0,
-        limit: 5,
-        offset: 0,
-      }),
-    });
+    mockRouter.mockReturnValue({ push: jest.fn() });
   });
 
-  it('renders Dashboard title', () => {
+  it('renders the product proposition', () => {
     render(<Home />);
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText(/Understand your website's security posture/i)).toBeInTheDocument();
   });
 
-  it('renders overview description', () => {
+  it('renders the URL scan input', () => {
     render(<Home />);
-    expect(screen.getByText(/Overview of your security scanning activity/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Website URL to scan/i)).toBeInTheDocument();
   });
 
-  it('renders stats cards after loading', async () => {
+  it('renders the how-it-works section', () => {
     render(<Home />);
-    await waitFor(() => {
-      expect(screen.getByText('Total Scans')).toBeInTheDocument();
-      expect(screen.getByText('Total Findings')).toBeInTheDocument();
-      expect(screen.getByText('Critical Issues')).toBeInTheDocument();
-      expect(screen.getByText('Avg Risk Score')).toBeInTheDocument();
-    });
+    expect(screen.getByText('How Tracera works')).toBeInTheDocument();
+    expect(screen.getByText('Validate the target')).toBeInTheDocument();
+    expect(screen.getByText('Run deterministic rules')).toBeInTheDocument();
   });
 
-  it('renders quick actions section after loading', async () => {
+  it('renders the finding areas section based on real rule categories', () => {
     render(<Home />);
-    await waitFor(() => {
-      expect(screen.getByText('Quick Actions')).toBeInTheDocument();
-      expect(screen.getByText('Start New Scan')).toBeInTheDocument();
-      expect(screen.getByText('View Scan History')).toBeInTheDocument();
-    });
+    expect(screen.getByText('What Tracera checks')).toBeInTheDocument();
+    expect(screen.getByText('Security headers')).toBeInTheDocument();
+    expect(screen.getByText('Cookie handling')).toBeInTheDocument();
   });
 
-  it('renders recent scans section after loading', async () => {
+  it('explains risk scoring honestly', () => {
     render(<Home />);
-    await waitFor(() => {
-      expect(screen.getByText('Recent Scans')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Risk scoring you can reason about')).toBeInTheDocument();
+    expect(
+      screen.getByText(/not a probability of compromise/i)
+    ).toBeInTheDocument();
   });
 
-  it('shows empty state when no scans', async () => {
+  it('marks the product preview as illustrative', () => {
     render(<Home />);
-    await waitFor(() => {
-      expect(screen.getByText('No scans yet')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Illustrative preview')).toBeInTheDocument();
   });
 
-  it('shows new scan button after loading', async () => {
+  it('navigates to the scan page with a valid URL', () => {
+    const push = jest.fn();
+    mockRouter.mockReturnValue({ push });
     render(<Home />);
-    await waitFor(() => {
-      const links = screen.getAllByRole('link', { name: /New Scan/i });
-      expect(links.length).toBeGreaterThan(0);
-    });
+    const input = screen.getByLabelText(/Website URL to scan/i);
+    fireEvent.change(input, { target: { value: 'https://example.com' } });
+    fireEvent.submit(input.closest('form')!);
+    expect(push).toHaveBeenCalledWith('/scan?url=https%3A%2F%2Fexample.com');
+  });
+
+  it('shows a validation error for an invalid URL', () => {
+    render(<Home />);
+    const input = screen.getByLabelText(/Website URL to scan/i);
+    fireEvent.change(input, { target: { value: 'not a url' } });
+    fireEvent.submit(input.closest('form')!);
+    expect(screen.getByRole('alert')).toHaveTextContent(/valid HTTP or HTTPS URL/i);
+    expect(mockRouter().push).not.toHaveBeenCalled();
+  });
+
+  it('renders footer navigation', () => {
+    render(<Home />);
+    expect(screen.getByLabelText('Footer navigation')).toBeInTheDocument();
   });
 });

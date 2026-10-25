@@ -4,6 +4,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel
 
+from app.core.config import settings
+
 
 class ValidatedURL(BaseModel):
     original_url: str
@@ -84,6 +86,12 @@ def validate_port(port: int | None, scheme: str) -> int:
         if not (1 <= port <= 65535):
             raise URLValidationError(
                 f"Invalid port: {port}. Must be between 1 and 65535.", "INVALID_PORT"
+            )
+        if port not in settings.SCANNER_ALLOWED_PORTS:
+            raise URLValidationError(
+                f"Port {port} is not allowed. Allowed ports: "
+                f"{sorted(settings.SCANNER_ALLOWED_PORTS)}.",
+                "PORT_NOT_ALLOWED",
             )
         return port
 

@@ -1,4 +1,5 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 export interface ScanMetadata {
   status_code: number;
@@ -13,7 +14,15 @@ export interface FindingEvidence {
   [key: string]: unknown;
 }
 
-export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info' | string;
+export type FindingSeverity =
+  | 'critical'
+  | 'high'
+  | 'medium'
+  | 'low'
+  | 'info'
+  | string;
+
+export type ScanStatus = 'pending' | 'completed' | 'failed' | string;
 
 export interface Finding {
   id: string;
@@ -31,7 +40,9 @@ export interface Finding {
 
 export interface ScanResponse {
   scan_id: string;
-  status: string;
+  status: ScanStatus;
+  url: string | null;
+  canonical_url: string | null;
   metadata: ScanMetadata | null;
   findings: Finding[];
   risk_score: number | null;
@@ -50,57 +61,131 @@ export interface ScanListResponse {
   offset: number;
 }
 
-export async function createScan(url: string): Promise<ScanResponse> {
-  const response = await fetch(`${API_BASE}/scans`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ url }),
-  });
+export interface ScanListParams {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  tier?: string;
+  search?: string;
+}
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+/** Error thrown for any failed API interaction. */
+export class ApiError extends Error {
+  status: number;
+  code: string | null;
+
+  constructor(message: string, status: number, code: string | null = null) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+const DEFAULT_TIMEOUT_MS = 60_000;
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError(
+        'The request timed out. The API may be slow or unreachable.',
+        0,
+        'TIMEOUT',
+      );
+    }
+    throw new ApiError(
+      'Could not reach the Tracera API. Check that the backend is running.',
+      0,
+      'NETWORK_ERROR',
+    );
+  } finally {
+    clearTimeout(timeout);
   }
 
-  return response.json();
+  if (!response.ok) {
+    let detail = `Request failed with status ${response.status}`;
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === 'string') {
+        detail = body.detail;
+      }
+    } catch {
+      // Malformed or empty error body: keep the generic message.
+    }
+    throw new ApiError(detail, response.status);
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError('The API returned a malformed response.', response.status, 'MALFORMED_RESPONSE');
+  }
+}
+
+export async function createScan(url: string): Promise<ScanResponse> {
+  return request<ScanResponse>('/scans', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
 }
 
 export async function getScan(scanId: string): Promise<ScanResponse> {
-  const response = await fetch(`${API_BASE}/scans/${scanId}`);
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+  return request<ScanResponse>(`/scans/${encodeURIComponent(scanId)}`);
 }
 
-export async function listScans(limit = 50, offset = 0): Promise<ScanListResponse> {
-  const response = await fetch(`${API_BASE}/scans?limit=${limit}&offset=${offset}`);
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+export async function listScans(
+  params: ScanListParams = {},
+): Promise<ScanListResponse> {
+  const search = new URLSearchParams();
+  if (params.limit !== undefined) search.set('limit', String(params.limit));
+  if (params.offset !== undefined) search.set('offset', String(params.offset));
+  if (params.status) search.set('status', params.status);
+  if (params.tier) search.set('tier', params.tier);
+  if (params.search) search.set('search', params.search);
+  const qs = search.toString();
+  return request<ScanListResponse>(`/scans${qs ? `?${qs}` : ''}`);
 }
 
-export function getSeverityColor(severity: string): string {
-  switch (severity.toLowerCase()) {
-    case 'critical':
-      return 'bg-red-600 text-white';
-    case 'high':
-      return 'bg-red-500 text-white';
-    case 'medium':
-      return 'bg-yellow-500 text-white';
-    case 'low':
-      return 'bg-blue-500 text-white';
-    case 'info':
-      return 'bg-gray-500 text-white';
-    default:
-      return 'bg-gray-300 text-gray-800';
+/** Server-generated JSON export download URL for a scan. */
+export function getScanExportUrl(scanId: string): string {
+  return `${API_BASE}/scans/${encodeURIComponent(scanId)}/export`;
+}
+
+/** Client-side URL sanity check mirroring backend rules (scheme + shape). */
+export function isValidScanUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 2048) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return false;
   }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  if (!parsed.hostname) return false;
+  return true;
+}
+
+export const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'] as const;
+
+export type SeverityLevel = (typeof SEVERITY_ORDER)[number];
+
+export function isSeverityLevel(value: string): value is SeverityLevel {
+  return (SEVERITY_ORDER as readonly string[]).includes(value);
 }
 
 export function getSeverityLabel(severity: string): string {

@@ -1,46 +1,34 @@
-interface SkeletonProps {
-  className?: string;
-  variant?: 'text' | 'circular' | 'rectangular';
-  width?: string;
-  height?: string;
-  animation?: 'pulse' | 'wave' | 'none';
-}
-
 export function Skeleton({
   className = '',
   variant = 'text',
-  width,
-  height,
-  animation = 'pulse',
-}: SkeletonProps) {
-  const baseStyles = 'bg-gray-200 dark:bg-gray-700 rounded';
-  const animationClasses = {
-    pulse: 'animate-pulse',
-    wave: 'animate-[shimmer_1.5s_infinite]',
-    none: '',
-  };
-
+}: {
+  className?: string;
+  variant?: 'text' | 'circular' | 'rectangular';
+}) {
   const variantStyles = {
-    text: 'h-4',
+    text: 'h-4 rounded',
     circular: 'rounded-full',
     rectangular: 'rounded-lg',
   };
-
-  const widthClass = width ? `w-[${width}]` : '';
-  const heightClass = height ? `h-[${height}]` : '';
-
   return (
     <div
-      className={`${baseStyles} ${variantStyles[variant]} ${animationClasses[animation]} ${widthClass} ${heightClass} ${className}`}
+      aria-hidden="true"
+      className={`animate-pulse bg-muted ${variantStyles[variant]} ${className}`}
     />
   );
 }
 
-export function SkeletonText({ lines = 3, className = '', ...props }: { lines?: number; className?: string } & Omit<SkeletonProps, 'variant'>) {
+export function SkeletonText({
+  lines = 3,
+  className = '',
+}: {
+  lines?: number;
+  className?: string;
+}) {
   return (
     <div className={`space-y-3 ${className}`}>
       {Array.from({ length: lines }).map((_, i) => (
-        <Skeleton key={i} variant="text" width={i === lines - 1 ? '60%' : '100%'} {...props} />
+        <Skeleton key={i} variant="text" className={i === lines - 1 ? 'w-3/5' : 'w-full'} />
       ))}
     </div>
   );
@@ -48,19 +36,19 @@ export function SkeletonText({ lines = 3, className = '', ...props }: { lines?: 
 
 export function SkeletonCard({ className = '' }: { className?: string }) {
   return (
-    <div className={`bg-white border border-gray-200 rounded-xl p-6 ${className}`}>
-      <div className="flex items-center gap-4 mb-6">
-        <Skeleton variant="circular" width="48" height="48" />
-        <div className="flex-1">
-          <Skeleton variant="text" width="40%" height="24" />
-          <Skeleton variant="text" width="60%" height="16" className="mt-2" />
+    <div className={`rounded-xl border border-border bg-card p-6 ${className}`}>
+      <div className="mb-6 flex items-center gap-4">
+        <Skeleton variant="circular" className="h-12 w-12" />
+        <div className="flex-1 space-y-2">
+          <Skeleton variant="text" className="w-2/5" />
+          <Skeleton variant="text" className="w-3/5" />
         </div>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="bg-gray-50 rounded-lg p-4">
-            <Skeleton variant="text" width="50%" height="14" />
-            <Skeleton variant="text" width="80%" height="24" className="mt-2" />
+          <div key={i} className="rounded-lg bg-surface p-4">
+            <Skeleton variant="text" className="w-1/2" />
+            <Skeleton variant="text" className="mt-2 w-4/5" />
           </div>
         ))}
       </div>
@@ -68,15 +56,24 @@ export function SkeletonCard({ className = '' }: { className?: string }) {
   );
 }
 
+export function SkeletonStatCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`rounded-xl border border-border bg-card p-6 ${className}`}>
+      <Skeleton variant="text" className="w-24" />
+      <Skeleton variant="text" className="mt-3 h-9 w-16" />
+    </div>
+  );
+}
+
 export function SkeletonFinding({ className = '' }: { className?: string }) {
   return (
-    <div className={`p-4 hover:bg-gray-50 transition-colors ${className}`}>
+    <div className={`p-4 ${className}`}>
       <div className="flex items-start gap-4">
-        <Skeleton variant="text" width="80" height="24" className="flex-shrink-0 mt-1" />
-        <div className="flex-1 min-w-0 space-y-3">
-          <Skeleton variant="text" width="70%" height="16" />
-          <Skeleton variant="text" width="100%" height="16" />
-          <Skeleton variant="text" width="100%" height="14" />
+        <Skeleton variant="rectangular" className="mt-1 h-6 w-20 flex-shrink-0" />
+        <div className="min-w-0 flex-1 space-y-2.5">
+          <Skeleton variant="text" className="w-3/4" />
+          <Skeleton variant="text" className="w-full" />
+          <Skeleton variant="text" className="w-2/3" />
         </div>
       </div>
     </div>
@@ -85,13 +82,41 @@ export function SkeletonFinding({ className = '' }: { className?: string }) {
 
 export function SkeletonSeveritySection({ className = '' }: { className?: string }) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${className}`}>
-      <div className="px-6 py-4 border-b border-gray-200 bg-gray-100 animate-pulse">
-        <Skeleton variant="text" width="40%" height="20" />
+    <div
+      className={`overflow-hidden rounded-xl border border-border bg-card ${className}`}
+    >
+      <div className="border-b border-border bg-surface px-6 py-4">
+        <Skeleton variant="text" className="w-2/5" />
       </div>
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-border">
         {Array.from({ length: 3 }).map((_, i) => (
           <SkeletonFinding key={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SkeletonTable({
+  rows = 5,
+  className = '',
+}: {
+  rows?: number;
+  className?: string;
+}) {
+  return (
+    <div className={`overflow-hidden rounded-xl border border-border bg-card ${className}`}>
+      <div className="border-b border-border bg-surface px-6 py-4">
+        <Skeleton variant="text" className="w-40" />
+      </div>
+      <div className="divide-y divide-border">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-6 px-6 py-4">
+            <Skeleton variant="text" className="w-1/3" />
+            <Skeleton variant="rectangular" className="h-6 w-20" />
+            <Skeleton variant="text" className="w-16" />
+            <Skeleton variant="text" className="ml-auto w-24" />
+          </div>
         ))}
       </div>
     </div>

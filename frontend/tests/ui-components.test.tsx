@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Button, ButtonGroup, IconButton } from '@/components/ui/Button';
+import { Button, ButtonGroup } from '@/components/ui/Button';
+import { IconButton } from '@/components/ui/IconButton';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Badge, StatusBadge } from '@/components/ui/Badge';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
@@ -12,7 +13,7 @@ describe('Button', () => {
 
   it('applies variant classes', () => {
     render(<Button variant="secondary">Secondary</Button>);
-    expect(screen.getByRole('button')).toHaveClass('bg-gray-100');
+    expect(screen.getByRole('button')).toHaveClass('bg-surface');
   });
 
   it('applies size classes', () => {
@@ -137,7 +138,7 @@ describe('Badge', () => {
 
   it('applies variant classes', () => {
     render(<Badge variant="success">Success</Badge>);
-    expect(screen.getByText('Success').closest('span')).toHaveClass('bg-green-100');
+    expect(screen.getByText('Success').closest('span')).toHaveClass('bg-success-light');
   });
 
   it('applies size classes', () => {
@@ -150,28 +151,26 @@ describe('Badge', () => {
     expect(screen.getByText('With dot').closest('span')).toContainHTML('w-1.5');
   });
 
-  it('shows removable button', () => {
-    const handleRemove = jest.fn();
-    render(<Badge removable onRemove={handleRemove}>Removable</Badge>);
-    fireEvent.click(screen.getByLabelText('Remove'));
-    expect(handleRemove).toHaveBeenCalled();
+  it('renders as a span with accessible content', () => {
+    render(<Badge>Plain badge</Badge>);
+    expect(screen.getByText('Plain badge').closest('span')).toBeInTheDocument();
   });
 });
 
 describe('StatusBadge', () => {
-  it('renders correct variant for each status', () => {
+  it('renders correct variant for each scan status', () => {
     render(
       <div>
-        <StatusBadge status="active" />
         <StatusBadge status="failed" />
         <StatusBadge status="pending" />
         <StatusBadge status="completed" />
+        <StatusBadge status="something-new" />
       </div>
     );
-    expect(screen.getByText('Active').closest('span')).toHaveClass('bg-green-100');
-    expect(screen.getByText('Failed').closest('span')).toHaveClass('bg-red-100');
-    expect(screen.getByText('Pending').closest('span')).toHaveClass('bg-yellow-100');
-    expect(screen.getByText('Completed').closest('span')).toHaveClass('bg-green-100');
+    expect(screen.getByText('Failed').closest('span')).toHaveClass('bg-danger-light');
+    expect(screen.getByText('Pending').closest('span')).toHaveClass('bg-warning-light');
+    expect(screen.getByText('Completed').closest('span')).toHaveClass('bg-success-light');
+    expect(screen.getByText('something-new').closest('span')).toHaveClass('bg-muted');
   });
 });
 

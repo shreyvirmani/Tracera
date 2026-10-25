@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
@@ -18,6 +18,10 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
+
+
+def utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class ScanStatus(str, enum.Enum):
@@ -71,8 +75,16 @@ class Scan(Base):
     risk_score = Column(Integer, nullable=True)
     risk_tier = Column(SQLEnum(RiskTier), nullable=True)
     score_source = Column(SQLEnum(ScoreSource), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
+    # Observed response metadata, persisted so reports never display
+    # fabricated values. Nullable: failed scans have none.
+    status_code = Column(Integer, nullable=True)
+    content_type = Column(String(255), nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    redirect_count = Column(Integer, nullable=True)
+    final_url = Column(Text, nullable=True)
+    content_length = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow, index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     error_code = Column(String(100), nullable=True)
     error_message = Column(Text, nullable=True)
 
@@ -95,6 +107,6 @@ class Finding(Base):
     recommendation = Column(Text, nullable=False)
     source = Column(SQLEnum(DetectionSource), nullable=False, default=DetectionSource.RULE_ENGINE)
     confidence = Column(Integer, nullable=False, default=100)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow, index=True)
 
     scan = relationship("Scan", back_populates="findings")

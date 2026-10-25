@@ -1,394 +1,416 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { ScanResponse, ScanListResponse } from '@/lib/api';
-import { SeverityBadge } from '@/components/ui/SeverityBadge';
-import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Cookie,
+  Gauge,
+  Globe,
+  Lock,
+  Radar,
+  ServerCog,
+  ShieldCheck,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { isValidScanUrl } from '@/lib/api';
+import { TraceraLogo } from '@/components/layout/Navbar';
 
-const STATUS_COLORS = {
-  completed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-  running: 'bg-blue-100 text-blue-800',
-  pending: 'bg-yellow-100 text-yellow-800',
-};
+const WORKFLOW_STEPS = [
+  {
+    icon: Globe,
+    title: 'Validate the target',
+    description:
+      'Every URL is canonicalized and screened before any request is made. Private, loopback, and other prohibited destinations are refused.',
+  },
+  {
+    icon: Radar,
+    title: 'Observe the public response',
+    description:
+      'Tracera fetches the publicly served response with strict timeouts, size limits, and per-hop redirect validation. No intrusion, no exploitation.',
+  },
+  {
+    icon: SlidersHorizontal,
+    title: 'Run deterministic rules',
+    description:
+      'A rule engine evaluates the extracted signals — security headers, cookies, TLS metadata, and response characteristics — against concrete checks.',
+  },
+  {
+    icon: Gauge,
+    title: 'Score and report',
+    description:
+      'Findings are aggregated into a 0–100 risk score with severity tiers, evidence, and recommended remediation for each finding.',
+  },
+];
 
-export default function DashboardPage() {
-  const [recentScans, setRecentScans] = useState<ScanResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+const FINDING_AREAS = [
+  {
+    icon: Lock,
+    title: 'Transport security',
+    description:
+      'HTTPS usage, HSTS policy, and TLS protocol characteristics observed on the connection.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Security headers',
+    description:
+      'Content-Security-Policy, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy.',
+  },
+  {
+    icon: Cookie,
+    title: 'Cookie handling',
+    description:
+      'Secure and HttpOnly attributes and SameSite policy on cookies set by the response.',
+  },
+  {
+    icon: ServerCog,
+    title: 'Configuration disclosure',
+    description:
+      'Server version banners, X-Powered-By leaks, and risky CORS combinations such as wildcard origins with credentials.',
+  },
+  {
+    icon: Globe,
+    title: 'Content hygiene',
+    description:
+      'Mixed content served over HTTP from an HTTPS page, and unusually large response bodies.',
+  },
+];
+
+export default function LandingPage() {
+  const router = useRouter();
+  const [url, setUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState({
-    totalScans: 0,
-    totalFindings: 0,
-    criticalFindings: 0,
-    highFindings: 0,
-    avgRiskScore: 0,
-  });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}/scans?limit=5&offset=0`
-        );
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data: ScanListResponse = await response.json();
-        setRecentScans(data.scans);
-        setStats({
-          totalScans: data.total,
-          totalFindings: data.scans.reduce((sum, s) => sum + (s.findings?.length || 0), 0),
-          criticalFindings: data.scans.reduce(
-            (sum, s) => sum + (s.findings?.filter(f => f.severity === 'critical').length || 0),
-            0
-          ),
-          highFindings: data.scans.reduce(
-            (sum, s) => sum + (s.findings?.filter(f => f.severity === 'high').length || 0),
-            0
-          ),
-          avgRiskScore:
-            data.scans.length > 0
-              ? Math.round(
-                  data.scans.reduce((sum, s) => sum + (s.risk_score || 0), 0) / data.scans.length
-                )
-              : 0,
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setError('Enter a URL to scan, for example https://example.com');
+      return;
+    }
+    if (!isValidScanUrl(trimmed)) {
+      setError('Enter a valid HTTP or HTTPS URL, for example https://example.com');
+      return;
+    }
+    setError(null);
+    router.push(`/scan?url=${encodeURIComponent(trimmed)}`);
   };
-
-  const truncateUrl = (url: string, maxLength = 40) => {
-    if (url.length <= maxLength) return url;
-    return url.substring(0, maxLength) + '...';
-  };
-
-  const statCards = [
-    {
-      label: 'Total Scans',
-      value: stats.totalScans,
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-        </svg>
-      ),
-      color: 'bg-blue-100 text-blue-600',
-      link: '/history',
-    },
-    {
-      label: 'Total Findings',
-      value: stats.totalFindings,
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-      ),
-      color: 'bg-amber-100 text-amber-600',
-      link: '/history',
-    },
-    {
-      label: 'Critical Issues',
-      value: stats.criticalFindings,
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-      ),
-      color: 'bg-red-100 text-red-600',
-      link: '/history',
-    },
-    {
-      label: 'Avg Risk Score',
-      value: stats.avgRiskScore,
-      suffix: '/100',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-      color: 'bg-purple-100 text-purple-600',
-      link: '/history',
-    },
-  ];
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="mt-2 text-gray-600">Overview of your security scanning activity</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Recent Scans</h2>
-              <Link href="/history" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                View All
-              </Link>
-            </div>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} variant="rectangular" height="60" className="mt-4 rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center">
-          <svg className="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <h2 className="mt-4 text-xl font-semibold text-gray-900">Failed to load dashboard</h2>
-          <p className="mt-2 text-gray-600">{error}</p>
-        </div>
-      </main>
-    );
-  }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="mt-2 text-gray-600">Overview of your security scanning activity</p>
-          </div>
-          <Link
-            href="/scan"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Scan
-          </Link>
-        </div>
+    <div>
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[480px] bg-[radial-gradient(60%_60%_at_50%_0%,rgb(var(--primary)/0.12),transparent_70%)]"
+        />
+        <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-20 sm:px-6 lg:px-8 lg:pt-28">
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              Passive website risk assessment
+            </span>
+            <h1 className="text-balance mt-6 text-4xl font-bold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
+              Understand your website&apos;s security posture
+              <span className="block text-primary">with evidence, not guesswork</span>
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-text-secondary">
+              Tracera observes the publicly available response from a website,
+              runs deterministic security checks, and produces an evidence-backed
+              risk report you can act on and share.
+            </p>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statCards.map((card) => (
-            <Link key={card.label} href={card.link} className="block">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">{card.label}</p>
-                    <p className="mt-2 text-3xl font-bold text-gray-900">
-                      {card.value}
-                      {card.suffix && <span className="text-lg font-normal text-gray-500">{card.suffix}</span>}
-                    </p>
-                  </div>
-                  <div className={`p-3 rounded-lg ${card.color}`}>{card.icon}</div>
+            {/* Scan input */}
+            <form onSubmit={handleSubmit} className="mx-auto mt-10 max-w-xl" noValidate>
+              <label htmlFor="landing-url" className="sr-only">
+                Website URL to scan
+              </label>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="relative flex-1">
+                  <Globe
+                    className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-muted"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="landing-url"
+                    type="url"
+                    inputMode="url"
+                    value={url}
+                    onChange={(event) => {
+                      setUrl(event.target.value);
+                      if (error) setError(null);
+                    }}
+                    placeholder="https://example.com"
+                    autoComplete="url"
+                    spellCheck={false}
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'landing-url-error' : undefined}
+                    className={`w-full rounded-xl border bg-card py-3.5 pl-12 pr-4 text-base text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
+                      error ? 'border-danger' : 'border-border focus:border-primary'
+                    }`}
+                  />
                 </div>
+                <Button type="submit" size="lg" className="sm:px-6">
+                  Scan a site
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
               </div>
-            </Link>
-          ))}
-        </div>
+              {error && (
+                <p id="landing-url-error" role="alert" className="mt-2 text-sm text-danger">
+                  {error}
+                </p>
+              )}
+              <p className="mt-3 text-xs text-text-muted">
+                Tracera only requests publicly accessible pages and never attempts
+                exploitation. Scan targets you are authorized to assess.
+              </p>
+            </form>
+          </div>
 
-        {/* Quick Actions & Recent Scans */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Quick Actions */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
-              <div className="space-y-3">
-                <Link
-                  href="/scan"
-                  className="block p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Start New Scan</p>
-                      <p className="text-sm text-gray-500">Submit a URL for security analysis</p>
-                    </div>
+          {/* Illustrative product preview */}
+          <div className="mx-auto mt-16 max-w-4xl">
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+              <div className="flex items-center gap-2 border-b border-border bg-surface px-4 py-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-danger/60" aria-hidden="true" />
+                <span className="h-2.5 w-2.5 rounded-full bg-warning/60" aria-hidden="true" />
+                <span className="h-2.5 w-2.5 rounded-full bg-success/60" aria-hidden="true" />
+                <span className="ml-3 rounded-md border border-border bg-background px-3 py-1 font-mono text-xs text-text-muted">
+                  tracera · scan report
+                </span>
+                <span className="ml-auto rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] text-text-muted">
+                  Illustrative preview
+                </span>
+              </div>
+              <div className="grid gap-6 p-6 sm:grid-cols-[auto_1fr] sm:p-8">
+                <div className="flex items-center gap-4 sm:flex-col sm:items-start">
+                  <div className="relative h-24 w-24">
+                    <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+                      <circle cx="60" cy="60" r="52" fill="none" strokeWidth="10" className="stroke-border" />
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="52"
+                        fill="none"
+                        strokeWidth="10"
+                        strokeLinecap="round"
+                        className="stroke-warning"
+                        strokeDasharray={2 * Math.PI * 52}
+                        strokeDashoffset={2 * Math.PI * 52 * 0.62}
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-warning">
+                      38
+                    </span>
                   </div>
-                </Link>
-                <Link
-                  href="/history"
-                  className="block p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 text-green-600 rounded-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">View Scan History</p>
-                      <p className="text-sm text-gray-500">Browse all previous scans</p>
-                    </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-text-muted">Risk tier</p>
+                    <p className="text-xl font-bold text-warning">Medium risk</p>
                   </div>
-                </Link>
-                <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gray-100 text-gray-500 rounded-lg">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                </div>
+                <div className="space-y-2.5">
+                  {[
+                    { severity: 'High', label: 'Missing Content-Security-Policy header', color: 'text-severity-high bg-severity-high/10 border-severity-high/30' },
+                    { severity: 'Medium', label: 'HSTS policy not established', color: 'text-warning bg-warning/10 border-warning/30' },
+                    { severity: 'Low', label: 'Server version disclosed in headers', color: 'text-severity-low bg-severity-low/10 border-severity-low/30' },
+                  ].map((row) => (
+                    <div
+                      key={row.label}
+                      className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3"
+                    >
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${row.color}`}>
+                        {row.severity}
+                      </span>
+                      <span className="truncate text-sm text-text-primary">{row.label}</span>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">API Documentation</p>
-                      <p className="text-sm text-gray-500">Integrate Tracera into your workflow</p>
-                    </div>
-                  </div>
+                  ))}
+                  <p className="pt-1 text-xs text-text-muted">
+                    Every finding links to the observed evidence and a recommended fix.
+                  </p>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
 
-            {/* Risk Distribution */}
-            <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Risk Distribution</h2>
+      {/* How it works */}
+      <section className="border-t border-border bg-surface/40">
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-text-primary">
+              How Tracera works
+            </h2>
+            <p className="mt-3 text-text-secondary">
+              A transparent pipeline: every result traces back to an observed fact.
+            </p>
+          </div>
+          <ol className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {WORKFLOW_STEPS.map((step, index) => (
+              <li key={step.title} className="rounded-xl border border-border bg-card p-6">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <step.icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="font-mono text-xs text-text-muted">
+                    Step {index + 1}
+                  </span>
+                </div>
+                <h3 className="mt-4 font-semibold text-text-primary">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                  {step.description}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* Finding types */}
+      <section className="border-t border-border">
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-text-primary">
+              What Tracera checks
+            </h2>
+            <p className="mt-3 text-text-secondary">
+              Findings come from a deterministic rule engine covering these areas.
+            </p>
+          </div>
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {FINDING_AREAS.map((area) => (
+              <div
+                key={area.title}
+                className="rounded-xl border border-border bg-card p-6 transition-colors hover:border-border-strong"
+              >
+                <area.icon className="h-6 w-6 text-primary" aria-hidden="true" />
+                <h3 className="mt-4 font-semibold text-text-primary">{area.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                  {area.description}
+                </p>
+              </div>
+            ))}
+            <div className="rounded-xl border border-primary/25 bg-primary/5 p-6">
+              <h3 className="font-semibold text-text-primary">Deterministic, evidence-backed</h3>
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                Each finding records the rule that produced it, the evidence
+                observed, and a confidence level — so results can be verified
+                rather than trusted blindly.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Risk scoring */}
+      <section className="border-t border-border bg-surface/40">
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight text-text-primary">
+                Risk scoring you can reason about
+              </h2>
+              <p className="mt-4 leading-relaxed text-text-secondary">
+                Tracera&apos;s score is a transparent aggregation, not a black box.
+                Each finding contributes a fixed weight based on its severity, and
+                the total is capped at 100.
+              </p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  'Critical findings weigh 25 points, high 15, medium 10, low 5, and info 1.',
+                  'Scores map to four tiers: low (0–24), medium (25–49), high (50–74), and critical (75–100).',
+                  'The score describes the issues these checks found — it is not a probability of compromise.',
+                  'A clean scan means no issues were found by these rules, not that a site is secure.',
+                ].map((point) => (
+                  <li key={point} className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" aria-hidden="true" />
+                    <span className="text-sm leading-relaxed text-text-secondary">{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-8 shadow-card">
               <div className="space-y-4">
                 {[
-                  { label: 'Critical', count: stats.criticalFindings, color: 'bg-red-500' },
-                  { label: 'High', count: stats.highFindings, color: 'bg-orange-500' },
-                  { label: 'Medium', count: stats.totalFindings - stats.criticalFindings - stats.highFindings, color: 'bg-yellow-500' },
-                  { label: 'Low / Info', count: Math.max(0, stats.totalFindings - stats.criticalFindings - stats.highFindings), color: 'bg-green-500' },
+                  { tier: 'Low', range: '0–24', color: 'bg-success' },
+                  { tier: 'Medium', range: '25–49', color: 'bg-warning' },
+                  { tier: 'High', range: '50–74', color: 'bg-severity-high' },
+                  { tier: 'Critical', range: '75–100', color: 'bg-danger' },
                 ].map((tier) => (
-                  <div key={tier.label} className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: tier.color }}>
-                      <span className="text-white text-xs font-bold">{tier.count}</span>
+                  <div key={tier.tier} className="flex items-center gap-4">
+                    <span className="w-20 text-sm font-medium text-text-primary">{tier.tier}</span>
+                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div className={`h-full rounded-full ${tier.color}`} style={{ width: tier.range === '0–24' ? '25%' : tier.range === '25–49' ? '50%' : tier.range === '50–74' ? '75%' : '100%' }} />
                     </div>
-                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          backgroundColor: tier.color,
-                          width: stats.totalFindings > 0 ? `${(tier.count / stats.totalFindings) * 100}%` : '0%',
-                        }}
-                      />
-                    </div>
-                    <span className="text-sm font-medium text-gray-700 w-16 text-right">
-                      {tier.label}
-                    </span>
+                    <span className="w-20 text-right font-mono text-xs text-text-muted">{tier.range}</span>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-
-          {/* Recent Scans */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">Recent Scans</h2>
-                <Link href="/history" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                  View All
-                </Link>
-              </div>
-              {recentScans.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Tier</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Findings</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {recentScans.map((scan) => (
-                        <tr key={scan.scan_id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <p className="text-sm font-medium text-gray-900 truncate max-w-xs" title={scan.metadata?.final_url || ''}>
-                              {truncateUrl(scan.metadata?.final_url || 'N/A')}
-                            </p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[scan.status as keyof typeof STATUS_COLORS] || 'bg-gray-100 text-gray-800'}`}>
-                              {scan.status.charAt(0).toUpperCase() + scan.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <SeverityBadge severity={scan.risk_tier || 'info'} size="sm" />
-                          </td>
-                          <td className="px-6 py-4">
-                            {scan.risk_score !== null ? (
-                              <span className="text-sm font-medium text-gray-900">{scan.risk_score}/100</span>
-                            ) : (
-                              <span className="text-sm text-gray-400">N/A</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-gray-700">{scan.findings?.length || 0}</span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-gray-500">{formatDate(scan.created_at)}</span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <Link
-                                href={`/scan/${scan.scan_id}`}
-                                className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                              >
-                                View
-                              </Link>
-                              <Link
-                                href={`/report/${scan.scan_id}`}
-                                className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                              >
-                                Report
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-12 text-center">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  <h3 className="mt-4 text-lg font-medium text-gray-900">No scans yet</h3>
-                  <p className="mt-2 text-gray-500">Start your first security scan to see results here</p>
-                  <Link
-                    href="/scan"
-                    className="mt-6 inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Start Scan
-                  </Link>
-                </div>
-              )}
+              <p className="mt-6 border-t border-border pt-4 text-xs leading-relaxed text-text-muted">
+                Tier boundaries are fixed by the scoring engine, so results are
+                comparable across scans.
+              </p>
             </div>
           </div>
         </div>
-      </div>
-    </main>
+      </section>
+
+      {/* CTA */}
+      <section className="border-t border-border">
+        <div className="mx-auto max-w-7xl px-4 py-20 text-center sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold tracking-tight text-text-primary">
+            Run your first scan
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-text-secondary">
+            Enter a URL and get an evidence-backed report in seconds.
+          </p>
+          <div className="mt-8">
+            <Link href="/scan">
+              <Button size="lg">
+                Start scanning
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-surface/40">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-8 md:flex-row md:items-start">
+            <div className="max-w-sm">
+              <TraceraLogo />
+              <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+                Defensive website risk assessment. Tracera observes only publicly
+                accessible responses and reports evidence-backed findings.
+              </p>
+            </div>
+            <nav aria-label="Footer navigation" className="grid grid-cols-2 gap-x-12 gap-y-2 text-sm">
+              <Link href="/scan" className="text-text-secondary transition-colors hover:text-text-primary">
+                New scan
+              </Link>
+              <Link href="/dashboard" className="text-text-secondary transition-colors hover:text-text-primary">
+                Dashboard
+              </Link>
+              <Link href="/history" className="text-text-secondary transition-colors hover:text-text-primary">
+                Scan history
+              </Link>
+              <a
+                href="http://localhost:8000/docs"
+                className="text-text-secondary transition-colors hover:text-text-primary"
+              >
+                API docs
+              </a>
+            </nav>
+          </div>
+          <div className="mt-10 border-t border-border pt-6 text-xs text-text-muted">
+            <p>© {new Date().getFullYear()} Tracera. Use responsibly: scan only targets you are authorized to assess.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }

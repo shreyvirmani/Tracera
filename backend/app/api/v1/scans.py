@@ -1,11 +1,15 @@
-from uuid import UUID, uuid4
+import time
+from datetime import UTC, datetime
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas import (
     FindingEvidence,
     FindingResponse,
+    ScanExportResponse,
     ScanListResponse,
     ScanMetadata,
     ScanRequest,
@@ -13,10 +17,12 @@ from app.api.v1.schemas import (
     create_scan_response,
 )
 from app.collector.collector import CollectorError, collect
+from app.core.config import settings
 from app.core.ssrf_guard import SSRFGuardError, check_ssrf
 from app.core.url_validator import URLValidationError, canonicalize_url
 from app.db.models import Scan
 from app.db.repository import (
+    count_scans,
     create_finding,
     create_scan,
     get_scan,
@@ -36,27 +42,60 @@ from app.scoring.risk import (
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
+# Simple in-memory sliding-window rate limiter for scan creation. This bounds
+# resource consumption per client; a production deployment would move this to
+# a shared store (e.g. Redis) when running multiple workers.
+_rate_limit_buckets: dict[str, list[float]] = {}
+
+
+def _check_rate_limit(client_ip: str) -> None:
+    now = time.monotonic()
+    window = settings.SCAN_RATE_LIMIT_WINDOW_SECONDS
+    bucket = _rate_limit_buckets.get(client_ip)
+    if bucket is None:
+        bucket = []
+        _rate_limit_buckets[client_ip] = bucket
+    bucket[:] = [t for t in bucket if now - t < window]
+    if len(bucket) >= settings.SCAN_RATE_LIMIT_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many scan requests. Please wait before trying again.",
+        )
+    bucket.append(now)
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
 
 @router.post("", response_model=ScanResponse, status_code=status.HTTP_200_OK)
 async def create_scan_endpoint(
-    request: ScanRequest, db: AsyncSession = Depends(get_db)
+    request: Request, scan_request: ScanRequest, db: AsyncSession = Depends(get_db)
 ) -> ScanResponse:
-    scan_id = uuid4()
+    _check_rate_limit(_client_ip(request))
 
     try:
-        validated_url = canonicalize_url(request.url)
+        validated_url = canonicalize_url(scan_request.url)
     except URLValidationError as e:
-        await create_scan(
+        scan = await create_scan(
             db=db,
-            url=request.url,
-            canonical_url=request.url,
+            url=scan_request.url,
+            canonical_url=scan_request.url,
             feature_schema_version="features-v1",
         )
+        await update_scan_completed(
+            db=db,
+            scan_id=scan.id,
+            status="failed",
+            error_code=e.code,
+            error_message=str(e),
+        )
         return create_scan_response(
-            scan_id=scan_id,
+            scan_id=scan.id,
             status="failed",
             error=str(e),
             error_code=e.code,
+            created_at=scan.created_at,
         )
 
     try:
@@ -64,7 +103,7 @@ async def create_scan_endpoint(
     except SSRFGuardError as e:
         scan = await create_scan(
             db=db,
-            url=request.url,
+            url=scan_request.url,
             canonical_url=validated_url.canonical_url,
             feature_schema_version="features-v1",
         )
@@ -80,37 +119,33 @@ async def create_scan_endpoint(
             status="failed",
             error=str(e),
             error_code=e.code,
-        )
-
-    try:
-        collector_response = await collect(validated_url, resolved_ip)
-    except CollectorError as e:
-        scan = await create_scan(
-            db=db,
-            url=request.url,
-            canonical_url=validated_url.canonical_url,
-            feature_schema_version="features-v1",
-        )
-        await update_scan_completed(
-            db=db,
-            scan_id=scan.id,
-            status="failed",
-            error_code=e.code,
-            error_message=str(e),
-        )
-        return create_scan_response(
-            scan_id=scan.id,
-            status="failed",
-            error=str(e),
-            error_code=e.code,
+            created_at=scan.created_at,
         )
 
     scan = await create_scan(
         db=db,
-        url=request.url,
+        url=scan_request.url,
         canonical_url=validated_url.canonical_url,
         feature_schema_version="features-v1",
     )
+
+    try:
+        collector_response = await collect(validated_url, resolved_ip)
+    except CollectorError as e:
+        await update_scan_completed(
+            db=db,
+            scan_id=scan.id,
+            status="failed",
+            error_code=e.code,
+            error_message=str(e),
+        )
+        return create_scan_response(
+            scan_id=scan.id,
+            status="failed",
+            error=str(e),
+            error_code=e.code,
+            created_at=scan.created_at,
+        )
 
     features = extract_features(collector_response)
 
@@ -151,7 +186,21 @@ async def create_scan_endpoint(
         risk_score=risk_score,
         risk_tier=risk_tier,
         score_source="fixed_baseline",
+        metadata={
+            "status_code": collector_response.status_code,
+            "content_type": collector_response.content_type,
+            "response_time_ms": int(collector_response.response_time_ms),
+            "redirect_count": collector_response.redirect_count,
+            "final_url": collector_response.final_url,
+            "content_length": len(collector_response.content),
+        },
     )
+
+    # Return the persisted representation so the create response is
+    # identical to what a subsequent GET (and the exported report) shows.
+    completed = await get_scan(db, scan.id)
+    if completed is not None:
+        return _scan_to_response(completed)
 
     metadata = ScanMetadata(
         status_code=collector_response.status_code,
@@ -166,6 +215,7 @@ async def create_scan_endpoint(
         scan_id=scan.id,
         status="completed",
         metadata=metadata,
+        created_at=scan.created_at,
     )
 
 
@@ -173,12 +223,32 @@ async def create_scan_endpoint(
 async def list_scans(
     limit: int = 50,
     offset: int = 0,
+    status_filter: str | None = Query(None, alias="status"),
+    tier_filter: str | None = Query(None, alias="tier"),
+    search: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> ScanListResponse:
-    scans = await get_scans(db, limit=limit, offset=offset)
+    # Hard caps keep a single request from pulling unbounded rows.
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+
+    scans = await get_scans(
+        db,
+        limit=limit,
+        offset=offset,
+        status=status_filter,
+        tier=tier_filter,
+        search=search,
+    )
+    total = await count_scans(
+        db,
+        status=status_filter,
+        tier=tier_filter,
+        search=search,
+    )
     return ScanListResponse(
         scans=[_scan_to_response(scan) for scan in scans],
-        total=len(scans),
+        total=total,
         limit=limit,
         offset=offset,
     )
@@ -193,6 +263,31 @@ async def get_scan_endpoint(
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     return _scan_to_response(scan)
+
+
+@router.get(
+    "/{scan_id}/export",
+    response_model=ScanExportResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def export_scan_endpoint(
+    scan_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    scan = await get_scan(db, scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    export = ScanExportResponse(
+        scan=_scan_to_response(scan),
+        exported_at=datetime.now(UTC),
+    )
+    content = export.model_dump(mode="json")
+    filename = f"tracera-scan-{scan.id}.json"
+    return JSONResponse(
+        content=content,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def _scan_to_response(scan: Scan) -> ScanResponse:
@@ -216,19 +311,21 @@ def _scan_to_response(scan: Scan) -> ScanResponse:
         )
 
     metadata = None
-    if scan.status == "completed" and scan.risk_score is not None:
+    if scan.status == "completed" and scan.status_code is not None:
         metadata = ScanMetadata(
-            status_code=200,
-            content_type="text/html",
-            response_time_ms=0,
-            redirect_count=0,
-            final_url=scan.canonical_url,
-            content_length=0,
+            status_code=scan.status_code,
+            content_type=scan.content_type,
+            response_time_ms=float(scan.response_time_ms or 0),
+            redirect_count=scan.redirect_count or 0,
+            final_url=scan.final_url or scan.canonical_url,
+            content_length=scan.content_length or 0,
         )
 
     return ScanResponse(
         scan_id=scan.id,
         status=scan.status,
+        url=scan.url,
+        canonical_url=scan.canonical_url,
         metadata=metadata,
         findings=findings_response,
         risk_score=scan.risk_score,

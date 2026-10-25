@@ -1,24 +1,32 @@
-import { ButtonHTMLAttributes, forwardRef, ReactElement, isValidElement, Children, cloneElement } from 'react';
+'use client';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
+import React, { ButtonHTMLAttributes, forwardRef } from 'react';
+
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'ghost-danger';
+  size?: 'sm' | 'md' | 'lg' | 'icon';
   loading?: boolean;
   fullWidth?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
+const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed';
+
 const variantStyles = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-  secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-500',
-  outline: 'border-2 border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500',
-  ghost: 'text-gray-600 hover:bg-gray-100 focus:ring-gray-500',
-  danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+  primary: 'bg-primary text-background hover:bg-primary-hover active:bg-primary/90 font-semibold',
+  secondary: 'bg-surface border border-border text-text-primary hover:bg-elevated active:bg-surface/80',
+  outline: 'border border-border bg-transparent text-text-primary hover:bg-surface active:bg-surface/50',
+  ghost: 'bg-transparent text-text-primary hover:bg-surface active:bg-surface/50',
+  danger: 'bg-danger text-background hover:bg-danger/90 active:bg-danger/80 font-semibold',
+  'ghost-danger': 'bg-transparent text-danger hover:bg-danger-light active:bg-danger-light/50 text-danger',
 };
 
 const sizeStyles = {
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2 text-sm',
-  lg: 'px-6 py-3 text-base',
+  sm: 'px-3 py-1.5 text-sm gap-1.5',
+  md: 'px-4 py-2 text-sm gap-2',
+  lg: 'px-6 py-3 text-base gap-2',
+  icon: 'p-2',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -28,9 +36,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size = 'md',
       loading = false,
       fullWidth = false,
+      leftIcon,
+      rightIcon,
       disabled,
-      children,
       className = '',
+      children,
       ...props
     },
     ref
@@ -42,9 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={isDisabled}
         className={`
-          inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200
-          focus:outline-none focus:ring-2 focus:ring-offset-2
-          disabled:opacity-50 disabled:cursor-not-allowed
+          ${baseStyles}
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${fullWidth ? 'w-full' : ''}
@@ -54,9 +62,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading && (
           <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4"
+            className="animate-spin h-4 w-4"
             fill="none"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <circle
               className="opacity-25"
@@ -74,7 +83,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             />
           </svg>
         )}
+        {!loading && leftIcon && <span aria-hidden="true">{leftIcon}</span>}
         {children}
+        {!loading && rightIcon && <span aria-hidden="true">{rightIcon}</span>}
       </button>
     );
   }
@@ -98,55 +109,26 @@ export function ButtonGroup({ children, className = '', vertical = false }: Butt
       role="group"
       aria-label="Button group"
     >
-{Children.map(children, (child, index) => {
-        if (!isValidElement(child)) return child;
-        const count = Children.count(children);
-        const isFirst = index === 0;
-        const isLast = index === count - 1;
-        const extraClassName = !vertical
-          ? isFirst
-            ? 'rounded-r-none'
-            : isLast
-            ? 'rounded-l-none'
-            : 'rounded-none'
-          : isFirst
-          ? 'rounded-b-none'
-          : isLast
-          ? 'rounded-t-none'
-          : 'rounded-none';
-        const childElement = child as ReactElement<Record<string, unknown>>;
-        const childClassName = (childElement.props.className as string) || '';
-        return cloneElement(childElement, {
-          className: `${childClassName} ${extraClassName}`,
+      {React.Children.map(children, (child, index) => {
+        if (!React.isValidElement(child)) return child;
+        const count = React.Children.count(children);
+        const childElement = child as React.ReactElement<{ className?: string }>;
+        return React.cloneElement(childElement, {
+          className: `${(childElement.props as { className?: string }).className || ''} ${
+            !vertical
+              ? index === 0
+                ? 'rounded-r-none'
+                : index === count - 1
+                ? 'rounded-l-none'
+                : 'rounded-none'
+              : index === 0
+              ? 'rounded-b-none'
+              : index === count - 1
+              ? 'rounded-t-none'
+              : 'rounded-none'
+          }`,
         });
       })}
     </div>
-  );
-}
-
-export function IconButton({
-  children,
-  ariaLabel,
-  variant = 'ghost',
-  size = 'md',
-  className = '',
-  ...props
-}: {
-  children: React.ReactNode;
-  ariaLabel: string;
-  variant?: 'ghost' | 'outline' | 'primary';
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
-} & Omit<ButtonProps, 'children' | 'variant' | 'size'>) {
-  return (
-    <Button
-      variant={variant}
-      size={size}
-      className={`p-0 ${size === 'sm' ? 'w-8 h-8' : size === 'md' ? 'w-10 h-10' : 'w-12 h-12'} ${className}`}
-      aria-label={ariaLabel}
-      {...props}
-    >
-      {children}
-    </Button>
   );
 }
