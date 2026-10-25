@@ -1,0 +1,102 @@
+{
+  "generated_at": "2026-10-25T17:14:26.634798+00:00",
+  "feature_schema_version": "v1",
+  "provenance": {
+    "data_label": "REAL",
+    "data_source": "common_crawl_wat",
+    "crawl_id": "CC-MAIN-2026-34",
+    "segment": "CC-MAIN-20260807103001-20260807133001-00162.warc.wat.gz",
+    "wat_url": "https://data.commoncrawl.org/crawl-data/CC-MAIN-2026-34/segments/1786091384964.66/wat/CC-MAIN-20260807103001-20260807133001-00162.warc.wat.gz"
+  },
+  "validation": {
+    "n_rows_in": 18089,
+    "n_rows_out": 18089,
+    "n_dropped": 0,
+    "n_nan_coerced": 0,
+    "n_type_coerced": 0,
+    "drop_reasons": {}
+  },
+  "data_stats": {
+    "train": 12737,
+    "val": 2662,
+    "test": 2690
+  },
+  "model": {
+    "class": "IsolationForest",
+    "n_estimators": 200,
+    "seed": 42,
+    "threshold_train_p5": 0.10208
+  },
+  "scores_test": {
+    "anomaly_rate_at_threshold": 0.0498,
+    "score_range": [
+      -0.1628715333266365,
+      0.18334368018081604
+    ]
+  },
+  "baseline_agreement": {
+    "baseline": "mean per-feature |z| (transparent, deterministic, no training)",
+    "spearman_test": 0.8077,
+    "topk_jaccard_test": {
+      "top_10": {
+        "k": 10,
+        "jaccard": 0.17647058823529413
+      },
+      "top_25": {
+        "k": 25,
+        "jaccard": 0.21951219512195122
+      },
+      "top_50": {
+        "k": 50,
+        "jaccard": 0.3888888888888889
+      },
+      "top_100": {
+        "k": 100,
+        "jaccard": 0.3333333333333333
+      }
+    },
+    "interpretation": "High overlap means the IsoForest mostly rediscovers the transparent baseline; low overlap means it adds a different ordering. Neither value alone justifies deployment."
+  },
+  "seed_stability": {
+    "top_25": {
+      "jaccard_mean": 0.7652,
+      "jaccard_min": 0.7241,
+      "jaccard_max": 0.7857
+    },
+    "top_50": {
+      "jaccard_mean": 0.7284,
+      "jaccard_min": 0.6667,
+      "jaccard_max": 0.8519
+    }
+  },
+  "rule_overlap": {
+    "n_test": 2690,
+    "n_rule_flagged_test": 2666,
+    "n_anomaly_test": 134,
+    "feature_rule_mismatches": {
+      "SEC-COOKIE-002 fires only when cookies present": 0,
+      "SEC-HSTS-001 never fires on http": 0,
+      "SEC-HTTPS-001 never fires on https": 0,
+      "CFG-XPB-001 requires x_powered_by_present": 0
+    },
+    "categories": {
+      "A_anomaly_with_rule_findings": 132,
+      "B_anomaly_without_rule_findings": 2,
+      "C_rule_flagged_but_typical": 2534,
+      "D_neither": 22
+    },
+    "interpretation": "A: model agrees with the rule engine. B: statistically unusual rows not covered by current rules \u2014 the only category where ML *may* add value; requires human review on real cases to confirm. C: rules fire but the configuration is common in the corpus \u2014 the rules remain the primary evidence-based signal. Counts, not metrics: no labels exist."
+  },
+  "artifact_dir": "ml\\artifacts\\isoforest_v1",
+  "artifact_skip_reason": null,
+  "metrics_not_reported": [
+    "accuracy",
+    "precision",
+    "recall",
+    "f1",
+    "roc_auc",
+    "probability_of_compromise",
+    "maliciousness_classification"
+  ],
+  "no_ground_truth_labels": true
+}

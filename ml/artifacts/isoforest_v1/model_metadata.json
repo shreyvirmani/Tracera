@@ -1,0 +1,27 @@
+{
+  "model_version": "isoforest_v1",
+  "model_class": "IsolationForest",
+  "feature_schema_version": "v1",
+  "data_label": "REAL",
+  "data_source": "common_crawl_wat",
+  "crawl_id": "CC-MAIN-2026-34",
+  "trained_at": "2026-10-25T17:14:25.930415+00:00",
+  "train_rows": 12737,
+  "unique_origins": 18089,
+  "n_features": 17,
+  "params": {
+    "n_estimators": 200,
+    "random_state": 42
+  },
+  "seeds": [
+    42,
+    123,
+    2026
+  ],
+  "notes": [
+    "Score semantics: anomaly_score = -decision_function; HIGHER = MORE statistically atypical. Not a probability of compromise/vulnerability.",
+    "Threshold derived as P5 of training decision_function: -0.102080.",
+    "No ground-truth labels; no supervised metrics were computed."
+  ],
+  "model_format_version": 1
+}

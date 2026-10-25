@@ -1,0 +1,1 @@
+{"anomaly_threshold": 0.10208049364411165, "method": "percentile_5_of_train_decision_function"}
