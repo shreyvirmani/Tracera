@@ -13,6 +13,10 @@ env/
 *.json
 !package.json
 !package-lock.json
+# Tracera ML: provenance, reports and artifact metadata ARE part of the record.
+!ml/data/pilot/processed/provenance.json
+!ml/data/pilot/reports/*.json
+!ml/artifacts/**/*.json
 *.key
 *.pem
 *.p12
@@ -57,9 +61,11 @@ alembic/versions/*.pyc
 ml/data/http_archive/raw/
 ml/data/http_archive/processed/
 ml/data/http_archive/reports/
+ml/data/pilot/cache/
 ml/data/pilot/raw/
-ml/data/pilot/processed/
-ml/data/pilot/reports/
+# contents of processed/ are regenerable intermediates; keep provenance.json ONLY
+ml/data/pilot/processed/*
+!ml/data/pilot/processed/provenance.json
 
 # Node.js / Next.js
 node_modules/
@@ -104,4 +110,3 @@ build/
 *.swp
 *.swo
 *~
-EOF

@@ -1,0 +1,16 @@
+# Tracera ML — Python dependencies (tested with Python 3.12, versions as validated).
+#
+# The ML suite itself runs offline:
+#   python -m pytest ml -q          (no network or large downloads needed)
+# Real-data pilot (downloads one ~150 MB Common Crawl WAT segment):
+#   python ml/data/cc_wat_pilot.py --source download
+
+numpy==2.5.3
+scipy==1.18.1
+pandas==3.0.6
+pyarrow==21.0.0        # parquet IO (pandas engine); not optional even for reads
+scikit-learn==1.9.1
+joblib==1.6.0
+cloudpickle==3.1.2
+requests==2.34.2
+publicsuffix2==2.20191221

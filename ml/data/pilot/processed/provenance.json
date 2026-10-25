@@ -1,0 +1,10 @@
+{
+  "source_type": "common_crawl_wat",
+  "data_label": "REAL",
+  "crawl_id": "CC-MAIN-2026-34",
+  "segment": "CC-MAIN-20260807103001-20260807133001-00162.warc.wat.gz",
+  "wat_url": "https://data.commoncrawl.org/crawl-data/CC-MAIN-2026-34/segments/1786091384964.66/wat/CC-MAIN-20260807103001-20260807133001-00162.warc.wat.gz",
+  "schema_version": "v1",
+  "seed": 42,
+  "generated_at": "2026-10-25T16:58:22.357620+00:00"
+}
