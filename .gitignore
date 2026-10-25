@@ -3,6 +3,16 @@
 .env.local
 .env.*.local
 
+# Credentials
+*.key
+*.pem
+*.p12
+*.pfx
+gcp-credentials*.json
+google-credentials*.json
+bigquery-credentials*.json
+service-account*.json
+
 # Python
 __pycache__/
 *.py[cod]
@@ -43,6 +53,15 @@ yarn-error.log*
 # Testing
 coverage/
 .nyc_output/
+
+# ML data artifacts
+ml/data/http_archive/reports/
+ml/data/pilot/raw/
+ml/data/pilot/processed/
+ml/data/pilot/reports/
+
+# TypeScript build info
+*.tsbuildinfo
 
 # Misc
 *.pid
