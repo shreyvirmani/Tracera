@@ -16,3 +16,9 @@ pytest-cov==5.0.0
 httpx-mock==0.2.2
 aiosqlite==0.20.0
 google-cloud-bigquery==3.25.0
+# ML inference stack: MUST match the training environment (ml/requirements.txt).
+# A different sklearn/numpy version risks incompatibility with model.joblib.
+numpy==2.5.3
+scipy==1.18.1
+scikit-learn==1.9.1
+joblib==1.6.0

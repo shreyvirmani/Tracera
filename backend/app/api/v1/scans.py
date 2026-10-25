@@ -12,6 +12,7 @@ from app.rules.engine import run_rules
 from app.scoring.engine import score_findings
 from app.db.session import get_db
 from app.db.models import Scan, Finding, ScanStatus, ScoreSource, RiskTier, FindingSeverity, FindingCategory, FindingSource
+from app.ml import analyze_scan_features, result_to_dict, ANALYSIS_VERSION, MLAnalysisResult
 
 router = APIRouter()
 
@@ -52,6 +53,7 @@ class ScanDetailResponse(BaseModel):
     error_code: Optional[str] = None
     error_message: Optional[str] = None
     findings: List[FindingResponse] = []
+    ml_analysis: Optional[dict] = None
 
 
 @router.post("/scans", response_model=ScanResponse, status_code=202)
@@ -143,6 +145,15 @@ async def get_scan(scan_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         for f in scan.findings
     ]
 
+    # Optional ML analysis (ml_analysis_v1 contract; never raises, never alters
+    # anything above — see backend/app/ml/contract.py).
+    ml_analysis = None
+    if scan.features:
+        try:
+            ml_analysis = result_to_dict(analyze_scan_features(scan.features))
+        except Exception:  # contract violation by design; scan response unaffected
+            ml_analysis = None
+
     return ScanDetailResponse(
         id=scan.id,
         url=scan.url,
@@ -157,6 +168,7 @@ async def get_scan(scan_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         error_code=scan.error_code,
         error_message=scan.error_message,
         findings=findings_resp,
+        ml_analysis=ml_analysis,
     )
 
 
@@ -196,6 +208,7 @@ async def get_report(scan_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         "risk_tier": scan_detail.risk_tier,
         "score_source": scan_detail.score_source,
         "feature_schema_version": scan_detail.feature_schema_version,
+        "ml_analysis": scan_detail.ml_analysis,
         "scan_time": scan_detail.created_at.isoformat(),
         "completed_time": scan_detail.completed_at.isoformat() if scan_detail.completed_at else None,
         "finding_summary": {

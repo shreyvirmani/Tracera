@@ -29,6 +29,10 @@ class Settings(BaseSettings):
 
     feature_schema_version: str = "v1"
 
+    # ML analysis (optional, graceful — never blocks or alters deterministic results)
+    ml_analysis_enabled: bool = True
+    ml_artifact_dir: str = ""  # empty -> repo-root ml/artifacts/isoforest_v1
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
