@@ -85,7 +85,7 @@ class TestMLFeaturesV1:
         )
         arr = f.to_array()
         assert arr.shape == (17,)  # 17 features total
-        assert arr.dtype == np.float32
+        assert arr.dtype == np.float64  # float64: matches training precision; float32 silently perturbs ratios
 
     def test_to_array_fixed_order(self):
         """Test feature order matches feature_names()."""

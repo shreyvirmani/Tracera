@@ -6,10 +6,18 @@ separate metadata record (DatasetMetadata). The ML feature vector contains
 ONLY stable, low-cardinality, numerical/binary features suitable for model
 input. All high-cardinality, raw, or provenance fields are kept in metadata.
 
-The schema is versioned. Any breaking change requires a version bump.
+Feature groups (17 total):
+- HTTP (3): status_code, is_html, https_enabled
+- Security Headers (6): hsts_present, csp_present, x_content_type_options_present,
+                        x_frame_options_present, referrer_policy_present,
+                        permissions_policy_present
+- Cookies (6): cookie_count, cookie_secure_ratio, cookie_httponly_ratio,
+               cookie_samesite_strict_ratio, cookie_samesite_lax_ratio,
+               cookie_samesite_none_ratio
+- Tech Disclosure (2): server_header_present, x_powered_by_present
 
-Feature extraction adapters (for live scanner, Common Crawl WAT, etc.) produce
-MLFeaturesV1 instances from their respective data sources.
+Validation: MLFeaturesV1.validate() enforces types, finiteness, and documented
+ranges so that training and inference always see the same feature contract.
 """
 
 from dataclasses import dataclass, asdict, field
@@ -20,6 +28,47 @@ import numpy as np
 ML_FEATURE_SCHEMA_VERSION = "v1"
 
 
+class FeatureValidationError(ValueError):
+    """Raised when a feature vector violates the MLFeaturesV1 contract."""
+
+    def __init__(self, message: str, issues: Optional[list] = None):
+        super().__init__(message)
+        self.issues: list[str] = list(issues or [])
+
+    def __str__(self) -> str:
+        base = super().__str__()
+        if self.issues:
+            details = "; ".join(self.issues[:10])
+            more = f" (+{len(self.issues) - 10} more)" if len(self.issues) > 10 else ""
+            return f"{base} [{details}{more}]"
+        return base
+
+
+def _is_int_value(v: object) -> bool:
+    """True for Python or numpy integers (bool excluded)."""
+    return isinstance(v, (int, np.integer)) and not isinstance(v, bool)
+
+
+def _is_num_value(v: object) -> bool:
+    """True for Python or numpy int/float (bool excluded)."""
+    return isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, bool)
+
+
+# Canonical feature groups (single source of truth for validation and tooling)
+BINARY_FEATURES: list[str] = [
+    "hsts_present", "csp_present", "x_content_type_options_present",
+    "x_frame_options_present", "referrer_policy_present", "permissions_policy_present",
+    "server_header_present", "x_powered_by_present",
+]
+HTTP_FEATURES: list[str] = ["status_code", "is_html", "https_enabled"]
+COUNT_FEATURES: list[str] = ["cookie_count"]
+RATIO_FEATURES: list[str] = [
+    "cookie_secure_ratio", "cookie_httponly_ratio",
+    "cookie_samesite_strict_ratio", "cookie_samesite_lax_ratio",
+    "cookie_samesite_none_ratio",
+]
+
+
 @dataclass
 class MLFeaturesV1:
     """
@@ -28,9 +77,9 @@ class MLFeaturesV1:
     All features are numerical (int/float) or binary (0/1). No strings,
     no high-cardinality categoricals, no raw header values.
 
-    Feature groups:
+    Feature groups (17 total):
     - HTTP (3): status_code, is_html, https_enabled
-    - Security Headers (5): hsts_present, csp_present, x_content_type_options_present,
+    - Security Headers (6): hsts_present, csp_present, x_content_type_options_present,
                             x_frame_options_present, referrer_policy_present,
                             permissions_policy_present
     - Cookies (6): cookie_count, cookie_secure_ratio, cookie_httponly_ratio,
@@ -86,7 +135,104 @@ class MLFeaturesV1:
             self.cookie_samesite_none_ratio,
             self.server_header_present,
             self.x_powered_by_present,
-        ], dtype=np.float32)
+        ], dtype=np.float64)  # match training-time precision (float64); float32 silently perturbs ratios
+
+    def validate(self) -> None:
+        """
+        Validate this vector against the MLFeaturesV1 contract.
+
+        Checks (all problems collected, raised together):
+        - feature_schema_version must be "v1".
+        - status_code: 0 (documented "response not captured" sentinel) or [100, 599].
+        - Binary features: int 0 or 1 (bool rejected).
+        - cookie_count: non-negative int.
+        - Ratios: finite numeric values within [0, 1].
+        - No NaN/Inf anywhere; missing values are represented by the documented
+          defaults, never by NaN/Inf (prevents training/serving skew).
+
+        Raises:
+            FeatureValidationError: with `.issues` listing every problem found.
+        """
+        issues: list[str] = []
+
+        if self.feature_schema_version != ML_FEATURE_SCHEMA_VERSION:
+            issues.append(
+                f"feature_schema_version: expected {ML_FEATURE_SCHEMA_VERSION!r}, got {self.feature_schema_version!r}"
+            )
+
+        sc = self.status_code
+        if isinstance(sc, bool) or not _is_int_value(sc):
+            issues.append(f"status_code: int expected, got {sc!r} ({type(sc).__name__})")
+        elif sc != 0 and not 100 <= int(sc) <= 599:
+            issues.append(f"status_code: 0 or int [100, 599] expected, got {sc!r}")
+
+        for name in ("is_html", "https_enabled", *BINARY_FEATURES):
+            v = getattr(self, name)
+            if not _is_int_value(v):
+                issues.append(f"{name}: binary int 0/1 expected, got {v!r} ({type(v).__name__})")
+            elif int(v) not in (0, 1):
+                issues.append(f"{name}: binary int expected, got {v!r}")
+
+        cc = self.cookie_count
+        if not _is_int_value(cc):
+            issues.append(f"cookie_count: non-negative int expected, got {cc!r} ({type(cc).__name__})")
+        elif int(cc) < 0:
+            issues.append(f"cookie_count: non-negative int expected, got {cc!r}")
+
+        for name in RATIO_FEATURES:
+            v = getattr(self, name)
+            if not _is_num_value(v):
+                issues.append(f"{name}: numeric value expected, got {v!r} ({type(v).__name__})")
+                continue
+            fv = float(v)
+            if not np.isfinite(fv):
+                issues.append(f"{name}: finite value expected, got {v!r}")
+            elif fv < 0.0 or fv > 1.0:
+                issues.append(f"{name}: value outside [0, 1]: {fv!r}")
+
+        if issues:
+            raise FeatureValidationError(
+                f"MLFeaturesV1 validation failed with {len(issues)} issue(s)",
+                issues=issues,
+            )
+
+    @classmethod
+    def from_dict(cls, d: dict, strict: bool = True) -> "MLFeaturesV1":
+        """
+        Construct and validate an MLFeaturesV1 from a plain dict.
+
+        strict=True (inference path): every one of the 17 feature keys must be
+        present and valid; unknown keys are ignored.
+        strict=False: missing keys fall back to documented defaults.
+
+        Raises:
+            FeatureValidationError: if any value violates the contract (or, in
+            strict mode, if required keys are missing).
+        """
+        unknown = set(d) - set(cls.feature_names()) - {"feature_schema_version"}
+        missing = [k for k in cls.feature_names() if k not in d]
+        if strict and missing:
+            raise FeatureValidationError(
+                f"feature dict missing {len(missing)} required key(s)",
+                issues=[f"missing key: {m}" for m in missing],
+            )
+        if explicit_missing := [k for k in d if k in set(cls.feature_names()) and d[k] is None]:
+            raise FeatureValidationError(
+                "feature dict contains None values (use documented defaults instead)",
+                issues=[f"{k}: None not allowed" for k in explicit_missing],
+            )
+        if strict and unknown:
+            # Unknown keys are tolerated but surfaced through issues for visibility.
+            pass
+        if strict:
+            kwargs = {k: d[k] for k in cls.feature_names()}
+        else:
+            kwargs = {k: d.get(k, cls.__dataclass_fields__[k].default) for k in cls.feature_names()}
+        if "feature_schema_version" in d and d["feature_schema_version"] is not None:
+            kwargs["feature_schema_version"] = d["feature_schema_version"]
+        fv = cls(**kwargs)
+        fv.validate()
+        return fv
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -120,8 +266,8 @@ class MLFeaturesV1:
         return {
             "status_code": {
                 "type": "int",
-                "range": "[100, 599]",
-                "meaning": "HTTP response status code",
+                "range": "0 (sentinel: response not captured) or [100, 599]",
+                "meaning": "HTTP response status code; 0 only when no response was captured",
                 "source": "HTTP response",
                 "missing_possible": False,
                 "used_by_model": True,
