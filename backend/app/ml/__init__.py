@@ -1,7 +1,19 @@
+"""
+Tracera backend ML integration (`ml_analysis_v1` contract) and baseline models.
+"""
+
 from app.ml.baseline import FixedBaseline
 from app.ml.evaluation import EvaluationMetrics, evaluate_model
 from app.ml.models import LogisticRegressionModel, RandomForestModel, XGBoostModel
 from app.ml.tracking import ExperimentRecord, ExperimentTracker
+from app.ml.service import (
+    ANALYSIS_VERSION,
+    MLAnalysisResult,
+    MLAnalysisStatus,
+    analyze_scan_features,
+    ml_features_from_scan_dict,
+    result_to_dict,
+)
 
 __all__ = [
     "FixedBaseline",
@@ -12,4 +24,10 @@ __all__ = [
     "EvaluationMetrics",
     "ExperimentTracker",
     "ExperimentRecord",
+    "ANALYSIS_VERSION",
+    "MLAnalysisResult",
+    "MLAnalysisStatus",
+    "analyze_scan_features",
+    "ml_features_from_scan_dict",
+    "result_to_dict",
 ]

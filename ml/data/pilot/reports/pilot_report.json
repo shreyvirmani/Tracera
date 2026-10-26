@@ -1,111 +1,171 @@
 {
-  "pilot_info": {
-    "timestamp": "2026-09-13T11:41:07.114784",
-    "used_real_common_crawl_data": false,
+  "generated_at": "2026-10-25T16:58:23.166451+00:00",
+  "schema_version": "v1",
+  "data_label": "REAL",
+  "source": {
+    "source_type": "common_crawl_wat",
+    "data_label": "REAL",
     "crawl_id": "CC-MAIN-2026-34",
-    "seed": 42,
-    "schema_version": "v1"
+    "segment": "CC-MAIN-20260807103001-20260807133001-00162.warc.wat.gz",
+    "wat_url": "https://data.commoncrawl.org/crawl-data/CC-MAIN-2026-34/segments/1786091384964.66/wat/CC-MAIN-20260807103001-20260807133001-00162.warc.wat.gz"
   },
-  "dataset_summary": {
-    "total_wat_records_processed": 5000,
-    "usable_records": 985,
-    "unique_origins_before_dedupe": 635,
-    "unique_origins_after_dedupe": 635,
-    "duplicate_rate": 0.3553,
-    "duplicate_records_removed": 350,
-    "filtering": {
-      "non_200_filtered": 1459,
-      "non_html_filtered": 2556,
-      "extraction_failed": 0
-    }
+  "limitations": [
+    "Feature extraction reads HTTP response metadata only (no page body content).",
+    "Isolation of rare/odd patterns is NOT evidence of compromise or vulnerability.",
+    "Dataset covers only sites crawled by Common Crawl during this crawl; sampling bias applies.",
+    ""
+  ],
+  "stats": {
+    "records_streamed": 60000,
+    "response_records": 19637,
+    "filtered_non_200": 0,
+    "filtered_non_html": 363,
+    "filtered_other": 40000,
+    "usable_records": 19637
   },
-  "split_summary": {
-    "train_rows": 436,
-    "val_rows": 94,
-    "test_rows": 105,
-    "train_groups": 154,
-    "val_groups": 33,
-    "test_groups": 34,
-    "total_groups": 221,
-    "train_group_ratio": 0.6968325791855203,
-    "val_group_ratio": 0.1493212669683258,
-    "test_group_ratio": 0.15384615384615385,
+  "validation": {
+    "n_rows_in": 19637,
+    "n_rows_out": 19637,
+    "n_dropped": 0,
+    "n_nan_coerced": 0,
+    "n_type_coerced": 0,
+    "drop_reasons": {}
+  },
+  "dedupe": {
+    "rows_in": 19637,
+    "unique_origins_out": 18089,
+    "duplicate_rows_removed": 1548
+  },
+  "split": {
+    "train_rows": 12737,
+    "val_rows": 2662,
+    "test_rows": 2690,
+    "train_groups": 12250,
+    "val_groups": 2625,
+    "test_groups": 2626,
+    "total_groups": 17501,
+    "train_group_ratio": 0.6999600022855836,
+    "val_group_ratio": 0.1499914290611965,
+    "test_group_ratio": 0.1500485686532198,
     "leakage_free": true
   },
-  "http_distribution": {
-    "200": 635
-  },
-  "https_percentage": 70.7,
-  "html_percentage": 100.0,
-  "security_headers": {
-    "hsts_present": {
-      "present": 242,
-      "absent": 393,
-      "present_pct": 38.1
-    },
-    "csp_present": {
-      "present": 176,
-      "absent": 459,
-      "present_pct": 27.7
-    },
-    "x_content_type_options_present": {
-      "present": 335,
-      "absent": 300,
-      "present_pct": 52.8
-    },
-    "x_frame_options_present": {
-      "present": 366,
-      "absent": 269,
-      "present_pct": 57.6
-    },
-    "referrer_policy_present": {
-      "present": 239,
-      "absent": 396,
-      "present_pct": 37.6
-    },
-    "permissions_policy_present": {
-      "present": 111,
-      "absent": 524,
-      "present_pct": 17.5
+  "http": {
+    "https_pct": 91.7,
+    "status_codes": {
+      "200": 18089
     }
   },
-  "cookie_statistics": {
-    "origins_with_cookies": 435,
+  "security_headers": {
+    "hsts_present": {
+      "present": 5612,
+      "absent": 12477,
+      "present_pct": 31.0
+    },
+    "csp_present": {
+      "present": 3290,
+      "absent": 14799,
+      "present_pct": 18.2
+    },
+    "x_content_type_options_present": {
+      "present": 5801,
+      "absent": 12288,
+      "present_pct": 32.1
+    },
+    "x_frame_options_present": {
+      "present": 4562,
+      "absent": 13527,
+      "present_pct": 25.2
+    },
+    "referrer_policy_present": {
+      "present": 2748,
+      "absent": 15341,
+      "present_pct": 15.2
+    },
+    "permissions_policy_present": {
+      "present": 1484,
+      "absent": 16605,
+      "present_pct": 8.2
+    },
+    "x_powered_by_present": {
+      "present": 5525,
+      "absent": 12564,
+      "present_pct": 30.5
+    }
+  },
+  "cookies": {
+    "origins_with_cookies": 8374,
     "cookie_count_distribution": {
-      "0": 200,
-      "1": 137,
-      "2": 98,
-      "3": 80,
-      "4": 52,
-      "5": 36,
-      "6": 32
+      "0": 9715,
+      "1": 3286,
+      "2": 1452,
+      "3": 1030,
+      "4": 812,
+      "5": 469,
+      "6": 399,
+      "7": 166,
+      "8": 145,
+      "9": 100,
+      "10": 68,
+      "11": 145,
+      "12": 61,
+      "13": 48,
+      "14": 35,
+      "15": 35,
+      "16": 23,
+      "17": 14,
+      "18": 11,
+      "19": 14,
+      "20": 2,
+      "21": 8,
+      "22": 3,
+      "23": 6,
+      "24": 5,
+      "25": 5,
+      "26": 4,
+      "27": 4,
+      "28": 3,
+      "29": 1,
+      "30": 1,
+      "31": 1,
+      "33": 2,
+      "34": 2,
+      "35": 1,
+      "36": 1,
+      "38": 2,
+      "39": 2,
+      "40": 3,
+      "45": 1,
+      "46": 1,
+      "48": 1,
+      "84": 1,
+      "121": 1
     },
     "cookie_secure_ratio": {
-      "mean": 0.45,
-      "median": 0.5,
+      "mean": 0.1859,
+      "median": 0.0,
       "min": 0.0,
       "max": 1.0
     },
     "cookie_httponly_ratio": {
-      "mean": 0.316,
-      "median": 0.25,
+      "mean": 0.1818,
+      "median": 0.0,
       "min": 0.0,
       "max": 1.0
     },
     "cookie_samesite_strict_ratio": {
-      "mean": 0.148,
+      "mean": 0.0075,
       "median": 0.0,
       "min": 0.0,
       "max": 1.0
     },
     "cookie_samesite_lax_ratio": {
-      "mean": 0.135,
+      "mean": 0.0668,
       "median": 0.0,
       "min": 0.0,
       "max": 1.0
     },
     "cookie_samesite_none_ratio": {
-      "mean": 0.089,
+      "mean": 0.0714,
       "median": 0.0,
       "min": 0.0,
       "max": 1.0
@@ -113,220 +173,40 @@
   },
   "technology_disclosure": {
     "server_header_present": {
-      "present": 514,
-      "present_pct": 80.9
+      "present": 16638,
+      "present_pct": 92.0
     },
     "x_powered_by_present": {
-      "present": 181,
-      "present_pct": 28.5
+      "present": 5525,
+      "present_pct": 30.5
     }
   },
-  "domain_concentration": {
-    "unique_registrable_domains": 221,
-    "top_20_domains": {
-      "netlify.app": 33,
-      "azurewebsites.net": 32,
-      "vercel.app": 32,
-      "github.io": 27,
-      "firebaseapp.com": 27,
-      "blogspot.com": 26,
-      "pages.dev": 25,
-      "herokuapp.com": 22,
-      "wixsite.com": 17,
-      "bigcommerce.com": 16,
-      "example.com": 13,
-      "railway.app": 13,
-      "googleusercontent.com": 12,
-      "render.com": 12,
-      "amazonaws.com": 11,
-      "fly.dev": 11,
-      "cloudflare.com": 10,
-      "surge.sh": 9,
-      "weebly.com": 9,
-      "squarespace.com": 9
+  "domains": {
+    "unique_registrable_domains": 17501,
+    "top_20": {
+      "blogspot.com": 142,
+      "wikipedia.org": 31,
+      "wordpress.org": 25,
+      "google.com": 13,
+      "googlesource.com": 12,
+      "wiktionary.org": 11,
+      "hh.ru": 10,
+      "apple.com": 7,
+      "weebly.com": 6,
+      "wisc.edu": 6,
+      "ox.ac.uk": 6,
+      "europa.eu": 5,
+      "microsoft.com": 5,
+      "web.app": 5,
+      "indiatimes.com": 5,
+      "rambler.ru": 5,
+      "oclc.org": 5,
+      "nih.gov": 5,
+      "wixsite.com": 5,
+      "rakuten.co.jp": 5
     },
-    "top_20_pct_of_total": 57.6,
-    "cloud_platform_concentration": {
-      "github.io": 27,
-      "herokuapp.com": 22,
-      "azurewebsites.net": 32,
-      "blogspot.com": 26,
-      "netlify.app": 33,
-      "vercel.app": 32,
-      "pages.dev": 25,
-      "firebaseapp.com": 27,
-      "amazonaws.com": 11,
-      "googleusercontent.com": 12
-    }
+    "top_20_pct_of_total": 1.7
   },
-  "missingness": {
-    "server_header_value": {
-      "missing_count": 121,
-      "missing_pct": 19.1
-    },
-    "x_powered_by_value": {
-      "missing_count": 454,
-      "missing_pct": 71.5
-    }
-  },
-  "feature_quality_checks": {
-    "status_code": {
-      "dtype": "int64",
-      "min": 200.0,
-      "max": 200.0
-    },
-    "is_html": {
-      "dtype": "int64",
-      "min": 1.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "https_enabled": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "hsts_present": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "csp_present": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "x_content_type_options_present": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "x_frame_options_present": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "referrer_policy_present": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "permissions_policy_present": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "cookie_count": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 6.0
-    },
-    "cookie_secure_ratio": {
-      "dtype": "float64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": false,
-      "unexpected_values": [
-        0.6,
-        0.8,
-        0.6666666666666666,
-        0.5,
-        0.75,
-        0.3333333333333333,
-        0.8333333333333334,
-        0.4
-      ],
-      "in_range": "True"
-    },
-    "cookie_httponly_ratio": {
-      "dtype": "float64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": false,
-      "unexpected_values": [
-        0.4,
-        0.5,
-        0.6666666666666666,
-        0.3333333333333333,
-        0.25,
-        0.6,
-        0.2,
-        0.16666666666666666,
-        0.75
-      ],
-      "in_range": "True"
-    },
-    "cookie_samesite_strict_ratio": {
-      "dtype": "float64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": false,
-      "unexpected_values": [
-        0.4,
-        0.25,
-        0.2,
-        0.3333333333333333,
-        0.5,
-        0.16666666666666666
-      ],
-      "in_range": "True"
-    },
-    "cookie_samesite_lax_ratio": {
-      "dtype": "float64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": false,
-      "unexpected_values": [
-        0.2,
-        0.4,
-        0.16666666666666666,
-        0.3333333333333333,
-        0.5,
-        0.25
-      ],
-      "in_range": "True"
-    },
-    "cookie_samesite_none_ratio": {
-      "dtype": "float64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": false,
-      "unexpected_values": [
-        0.25,
-        0.5,
-        0.16666666666666666,
-        0.2,
-        0.3333333333333333
-      ],
-      "in_range": "True"
-    },
-    "server_header_present": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    },
-    "x_powered_by_present": {
-      "dtype": "int64",
-      "min": 0.0,
-      "max": 1.0,
-      "is_binary": true
-    }
-  },
-  "sanity_checks": {
-    "no_duplicate_origins": true,
-    "no_eTLD1_leakage": true,
-    "duplicate_rate_reasonable": true,
-    "binary_features_are_binary": false,
-    "ratios_in_range": true,
-    "cookie_count_non_negative": "True",
-    "status_codes_valid": "True"
-  }
+  "seed": 42,
+  "crawl_id_arg": "CC-MAIN-2026-34"
 }

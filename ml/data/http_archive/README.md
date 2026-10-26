@@ -1,5 +1,21 @@
 # HTTP Archive BigQuery Data Pipeline
 
+> ⚠️ **STATUS: EXPERIMENTAL / INCOMPLETE — superseded by `ml/data/cc_wat_pilot.py`.**
+>
+> The audit of this module (`docs/ml-audit.md`) found:
+> - `extract.py` "synthetic fallback" mode is a **silent synthetic-for-real substitution**
+>   and contradicts the data-honesty policy now in force (`ml/data/cc_wat_pilot.py`
+>   requires an explicit `--source download|synthetic` and labels every artifact).
+> - The orchestration stops mid-pipeline: the BigQuery result mapping is
+>   incomplete ("The rest of the pipeline would continue here" — `extract.py`),
+>   so this module has never produced a complete, validated real dataset.
+>
+> The working, validated acquisition route for real data is
+> **`ml/data/cc_wat_pilot.py`** (Common Crawl WAT, real 2026 crawl, verified
+> end-to-end). Use this module only as reference material for a future
+> HTTP-Archive-specific extractor; do not trust its vocabulary maps or
+> downstream behavior.
+
 ## Overview
 
 This module extracts real-world web data from the HTTP Archive BigQuery dataset and transforms it into Tracera's 17-feature ML schema for anomaly detection research.

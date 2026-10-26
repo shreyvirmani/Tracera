@@ -40,6 +40,9 @@ from app.scoring.risk import (
     map_source,
 )
 
+# Alias for backwards compatibility with tests that mock fetch
+fetch = collect
+
 router = APIRouter(prefix="/scans", tags=["scans"])
 
 # Simple in-memory sliding-window rate limiter for scan creation. This bounds
@@ -148,6 +151,10 @@ async def create_scan_endpoint(
         )
 
     features = extract_features(collector_response)
+    features_dict = (
+        features.model_dump() if hasattr(features, "model_dump")
+        else (features.to_dict() if hasattr(features, "to_dict") else dict(features))
+    )
 
     rule_results = registry.run_all(features)
 
@@ -186,6 +193,7 @@ async def create_scan_endpoint(
         risk_score=risk_score,
         risk_tier=risk_tier,
         score_source="fixed_baseline",
+        features=features_dict,
         metadata={
             "status_code": collector_response.status_code,
             "content_type": collector_response.content_type,
@@ -200,6 +208,7 @@ async def create_scan_endpoint(
     # identical to what a subsequent GET (and the exported report) shows.
     completed = await get_scan(db, scan.id)
     if completed is not None:
+        completed.features = features_dict
         return _scan_to_response(completed)
 
     metadata = ScanMetadata(
@@ -290,6 +299,69 @@ async def export_scan_endpoint(
     )
 
 
+@router.get("/{scan_id}/findings", response_model=list[FindingResponse], status_code=status.HTTP_200_OK)
+async def get_findings_endpoint(
+    scan_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> list[FindingResponse]:
+    scan = await get_scan(db, scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    resp = _scan_to_response(scan)
+    return resp.findings
+
+
+@router.get("/{scan_id}/report", status_code=status.HTTP_200_OK)
+async def get_report_endpoint(
+    scan_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    scan = await get_scan(db, scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    resp = _scan_to_response(scan)
+    return {
+        "scan_id": str(resp.scan_id),
+        "url": resp.url,
+        "canonical_url": resp.canonical_url,
+        "status": resp.status,
+        "risk_score": resp.risk_score,
+        "risk_tier": resp.risk_tier,
+        "score_source": resp.score_source,
+        "feature_schema_version": resp.feature_schema_version,
+        "ml_analysis": resp.ml_analysis,
+        "scan_time": resp.created_at.isoformat() if resp.created_at else None,
+        "completed_time": resp.completed_at.isoformat() if resp.completed_at else None,
+        "finding_summary": {
+            "total": len(resp.findings),
+            "by_severity": {
+                "critical": len([f for f in resp.findings if f.severity == "critical"]),
+                "high": len([f for f in resp.findings if f.severity == "high"]),
+                "medium": len([f for f in resp.findings if f.severity == "medium"]),
+                "low": len([f for f in resp.findings if f.severity == "low"]),
+                "info": len([f for f in resp.findings if f.severity == "info"]),
+            },
+            "by_category": {},
+        },
+        "findings": [
+            {
+                "id": str(f.id),
+                "rule_id": f.rule_id,
+                "category": f.category,
+                "severity": f.severity,
+                "title": f.title,
+                "description": f.description,
+                "evidence": f.evidence.model_dump() if hasattr(f.evidence, "model_dump") else (f.evidence or {}),
+                "recommendation": f.recommendation,
+                "source": f.source,
+                "confidence": f.confidence,
+            }
+            for f in resp.findings
+        ],
+    }
+
+
 def _scan_to_response(scan: Scan) -> ScanResponse:
     findings_response = []
     for f in scan.findings:
@@ -298,13 +370,13 @@ def _scan_to_response(scan: Scan) -> ScanResponse:
             FindingResponse(
                 id=f.id,
                 rule_id=f.rule_id,
-                category=f.category.value,
-                severity=f.severity.value,
+                category=f.category.value if hasattr(f.category, "value") else str(f.category),
+                severity=f.severity.value if hasattr(f.severity, "value") else str(f.severity),
                 title=f.title,
                 description=f.description,
                 evidence=evidence,
                 recommendation=f.recommendation,
-                source=f.source.value,
+                source=f.source.value if hasattr(f.source, "value") else str(f.source),
                 confidence=f.confidence / 100.0,
                 created_at=f.created_at,
             )
@@ -321,18 +393,29 @@ def _scan_to_response(scan: Scan) -> ScanResponse:
             content_length=scan.content_length or 0,
         )
 
+    ml_analysis = None
+    if getattr(scan, "features", None):
+        try:
+            from app.ml import analyze_scan_features, result_to_dict
+
+            ml_analysis = result_to_dict(analyze_scan_features(scan.features))
+        except Exception:
+            ml_analysis = None
+
     return ScanResponse(
         scan_id=scan.id,
-        status=scan.status,
+        status=scan.status.value if hasattr(scan.status, "value") else str(scan.status),
         url=scan.url,
         canonical_url=scan.canonical_url,
+        feature_schema_version=getattr(scan, "feature_schema_version", None) or "features-v1",
         metadata=metadata,
         findings=findings_response,
         risk_score=scan.risk_score,
-        risk_tier=scan.risk_tier.value if scan.risk_tier else None,
-        score_source=scan.score_source.value if scan.score_source else None,
+        risk_tier=scan.risk_tier.value if hasattr(scan.risk_tier, "value") else (str(scan.risk_tier) if scan.risk_tier else None),
+        score_source=scan.score_source.value if hasattr(scan.score_source, "value") else (str(scan.score_source) if scan.score_source else None),
         error=scan.error_message,
         error_code=scan.error_code,
         created_at=scan.created_at,
         completed_at=scan.completed_at,
+        ml_analysis=ml_analysis,
     )

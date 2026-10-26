@@ -9,11 +9,17 @@ python-dotenv==1.0.1
 sqlalchemy==2.0.34
 alembic==1.13.1
 psycopg[binary]==3.3.5
-scikit-learn==1.5.2
-xgboost==2.1.2
-joblib==1.4.2
 pytest==8.3.3
 pytest-asyncio==0.24.0
 httpx-mock==0.2.2
+aiosqlite==0.20.0
+google-cloud-bigquery==3.25.0
 ruff==0.6.9
 black==24.10.0
+# ML inference stack: MUST match the training environment (ml/requirements.txt).
+# A different sklearn/numpy version risks incompatibility with model.joblib.
+numpy==2.5.3
+scipy==1.18.1
+scikit-learn==1.9.1
+joblib==1.6.0
+xgboost==2.1.2

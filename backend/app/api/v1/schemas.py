@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -18,7 +19,7 @@ class ScanMetadata(BaseModel):
 
 
 class FindingEvidence(BaseModel):
-    pass
+    model_config = {"extra": "allow"}
 
 
 class FindingResponse(BaseModel):
@@ -28,7 +29,7 @@ class FindingResponse(BaseModel):
     severity: str
     title: str
     description: str
-    evidence: FindingEvidence
+    evidence: Any = None
     recommendation: str
     source: str
     confidence: float
@@ -40,6 +41,7 @@ class ScanResponse(BaseModel):
     status: str
     url: str | None = None
     canonical_url: str | None = None
+    feature_schema_version: str | None = "features-v1"
     metadata: ScanMetadata | None = None
     findings: list[FindingResponse] = []
     risk_score: int | None = None
@@ -49,6 +51,11 @@ class ScanResponse(BaseModel):
     error_code: str | None = None
     created_at: datetime
     completed_at: datetime | None = None
+    ml_analysis: dict | None = None
+
+    @property
+    def id(self) -> UUID:
+        return self.scan_id
 
 
 class ScanListResponse(BaseModel):
@@ -73,6 +80,7 @@ def create_scan_response(
     error: str | None = None,
     error_code: str | None = None,
     created_at: datetime | None = None,
+    ml_analysis: dict | None = None,
 ) -> ScanResponse:
     return ScanResponse(
         scan_id=scan_id,
@@ -81,4 +89,5 @@ def create_scan_response(
         error=error,
         error_code=error_code,
         created_at=created_at or datetime.now(UTC),
+        ml_analysis=ml_analysis,
     )

@@ -3,7 +3,7 @@
 .env.local
 .env.*.local
 
-# Credentials
+# Credentials & Secrets
 *.key
 *.pem
 *.p12
@@ -12,6 +12,8 @@ gcp-credentials*.json
 google-credentials*.json
 bigquery-credentials*.json
 service-account*.json
+*credentials*.json
+*secret*.json
 
 # Python
 __pycache__/
@@ -56,9 +58,11 @@ coverage/
 
 # ML data artifacts
 ml/data/http_archive/reports/
+ml/data/pilot/cache/
 ml/data/pilot/raw/
-ml/data/pilot/processed/
-ml/data/pilot/reports/
+# contents of processed/ are regenerable intermediates; keep provenance.json ONLY
+ml/data/pilot/processed/*
+!ml/data/pilot/processed/provenance.json
 
 # TypeScript build info
 *.tsbuildinfo
@@ -67,3 +71,5 @@ ml/data/pilot/reports/
 *.pid
 *.seed
 *.pid.lock
+.turbo/
+.vercel
