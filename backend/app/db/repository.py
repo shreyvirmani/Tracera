@@ -25,6 +25,7 @@ async def create_scan(
     url: str,
     canonical_url: str,
     feature_schema_version: str,
+    features: dict | None = None,
 ) -> Scan:
     scan = Scan(
         url=url,
@@ -32,9 +33,13 @@ async def create_scan(
         status=ScanStatus.PENDING,
         feature_schema_version=feature_schema_version,
     )
+    if features is not None:
+        scan.features = features
     db.add(scan)
     await db.commit()
     await db.refresh(scan)
+    if features is not None:
+        scan.features = features
     return scan
 
 
@@ -48,6 +53,7 @@ async def update_scan_completed(
     error_code: str | None = None,
     error_message: str | None = None,
     metadata: dict | None = None,
+    features: dict | None = None,
 ) -> Scan | None:
     result = await db.execute(select(Scan).where(Scan.id == scan_id))
     scan = result.scalar_one_or_none()
@@ -66,6 +72,8 @@ async def update_scan_completed(
         scan.error_code = error_code
     if error_message is not None:
         scan.error_message = error_message
+    if features is not None:
+        scan.features = features
     if metadata is not None:
         for key, value in metadata.items():
             if hasattr(scan, key):
@@ -73,6 +81,8 @@ async def update_scan_completed(
 
     await db.commit()
     await db.refresh(scan)
+    if features is not None:
+        scan.features = features
     return scan
 
 
@@ -109,7 +119,7 @@ async def create_finding(
 
 async def get_scan(db: AsyncSession, scan_id: UUID) -> Scan | None:
     result = await db.execute(
-        select(Scan).options(selectinload(Scan.findings)).where(Scan.id == scan_id)
+        select(Scan).where(Scan.id == scan_id).options(selectinload(Scan.findings))
     )
     return result.scalar_one_or_none()
 
@@ -122,23 +132,22 @@ async def get_scans(
     tier: str | None = None,
     search: str | None = None,
 ) -> list[Scan]:
-    query = select(Scan).options(selectinload(Scan.findings))
+    query = select(Scan).options(selectinload(Scan.findings)).order_by(Scan.created_at.desc())
 
     if status:
-        try:
-            query = query.where(Scan.status == ScanStatus(status.lower()))
-        except ValueError:
-            return []
+        query = query.where(Scan.status == status)
     if tier:
-        try:
-            query = query.where(Scan.risk_tier == RiskTier(tier.lower()))
-        except ValueError:
-            return []
+        query = query.where(Scan.risk_tier == tier)
     if search:
-        pattern = f"%{search}%"
-        query = query.where(or_(Scan.url.ilike(pattern), Scan.canonical_url.ilike(pattern)))
+        search_pattern = f"%{search}%"
+        query = query.where(
+            or_(
+                Scan.url.ilike(search_pattern),
+                Scan.canonical_url.ilike(search_pattern),
+            )
+        )
 
-    query = query.order_by(Scan.created_at.desc()).limit(limit).offset(offset)
+    query = query.limit(limit).offset(offset)
     result = await db.execute(query)
     return list(result.scalars().all())
 
@@ -149,21 +158,20 @@ async def count_scans(
     tier: str | None = None,
     search: str | None = None,
 ) -> int:
-    query = select(func.count()).select_from(Scan)
+    query = select(func.count(Scan.id))
 
     if status:
-        try:
-            query = query.where(Scan.status == ScanStatus(status.lower()))
-        except ValueError:
-            return 0
+        query = query.where(Scan.status == status)
     if tier:
-        try:
-            query = query.where(Scan.risk_tier == RiskTier(tier.lower()))
-        except ValueError:
-            return 0
+        query = query.where(Scan.risk_tier == tier)
     if search:
-        pattern = f"%{search}%"
-        query = query.where(or_(Scan.url.ilike(pattern), Scan.canonical_url.ilike(pattern)))
+        search_pattern = f"%{search}%"
+        query = query.where(
+            or_(
+                Scan.url.ilike(search_pattern),
+                Scan.canonical_url.ilike(search_pattern),
+            )
+        )
 
     result = await db.execute(query)
-    return int(result.scalar_one())
+    return int(result.scalar() or 0)
