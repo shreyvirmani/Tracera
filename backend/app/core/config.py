@@ -1,12 +1,26 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+_ROOT_DIR = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=[
+            _BACKEND_DIR / ".env",
+            _ROOT_DIR / ".env",
+            ".env",
+        ],
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     DATABASE_URL: str = Field(
-        default="postgresql+psycopg://postgres:postgres@localhost:5432/tracera",
+        default="postgresql+psycopg://postgres:postgres@localhost:5432/Tracera",
         description="PostgreSQL connection URL",
     )
     DB_ECHO: bool = Field(default=False, description="Echo SQL queries")
@@ -46,9 +60,25 @@ class Settings(BaseSettings):
         default=60, description="Rate limit window in seconds"
     )
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # ML analysis (optional, graceful — never blocks or alters deterministic results)
+    ML_ANALYSIS_ENABLED: bool = Field(default=True, description="Enable optional ML analysis")
+    ML_ARTIFACT_DIR: str = Field(default="", description="Path to ML artifact directory")
+
+    @property
+    def database_url(self) -> str:
+        return self.DATABASE_URL
+
+    @property
+    def db_echo(self) -> bool:
+        return self.DB_ECHO
+
+    @property
+    def ml_analysis_enabled(self) -> bool:
+        return self.ML_ANALYSIS_ENABLED
+
+    @property
+    def ml_artifact_dir(self) -> str:
+        return self.ML_ARTIFACT_DIR
 
 
 @lru_cache
